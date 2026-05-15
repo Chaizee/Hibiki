@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../state/sanctuary_state.dart';
-import '../../widgets/app_header.dart';
 import '../../widgets/resonance_score_card.dart';
 import '../../widgets/sanctuary_insight_card.dart';
 
@@ -20,14 +19,10 @@ class HistoryScreen extends StatelessWidget {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppHeader(
-                  onSettings: () {},
-                ),
-                const SizedBox(height: 16),
                 Text(
                   'Your Emotional Landscape',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(

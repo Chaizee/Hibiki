@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../state/sanctuary_state.dart';
-import '../../widgets/app_header.dart';
 import '../../widgets/mood_card.dart';
 import '../../data/models/recommendation.dart';
 
@@ -20,14 +19,10 @@ class ListenScreen extends StatelessWidget {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppHeader(
-                  onSettings: () => _toast(context, 'Settings (wire to navigation)'),
-                ),
-                const SizedBox(height: 20),
                 RichText(
                   text: TextSpan(
                     style: GoogleFonts.playfairDisplay(
