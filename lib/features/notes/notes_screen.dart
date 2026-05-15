@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../state/sanctuary_state.dart';
-import '../../widgets/app_header.dart';
 import '../../widgets/sanctuary_chip.dart';
 import '../../widgets/timeline_item.dart';
 
@@ -35,12 +34,10 @@ class _NotesScreenState extends State<NotesScreen> {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppHeader(onSettings: () {}),
-                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
