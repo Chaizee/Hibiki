@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../state/sanctuary_state.dart';
-import '../../widgets/app_header.dart';
+import 'account_settings_screen.dart';
 
 class MeScreen extends StatelessWidget {
   const MeScreen({super.key});
@@ -20,12 +20,27 @@ class MeScreen extends StatelessWidget {
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            child: Column(
-              children: [
-                AppHeader(onSettings: () {}),
-                const SizedBox(height: 12),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              child: Column(
+                children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    onPressed: () {
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AccountSettingsScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.settings_outlined),
+                    color: AppColors.forest,
+                    tooltip: 'Account settings',
+                  ),
+                ),
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -102,10 +117,9 @@ class MeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                _AccountSettingsCard(),
                 const SizedBox(height: 100),
               ],
+            ),
             ),
           ),
         ),
@@ -354,80 +368,6 @@ class _MilestoneCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
               color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountSettingsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      (
-        Icons.person_outline,
-        'Personal Information',
-        'Update your details and avatar',
-        false,
-      ),
-      (
-        Icons.notifications_none_rounded,
-        'Mindfulness Reminders',
-        'Push notifications and schedule',
-        false,
-      ),
-      (
-        Icons.shield_outlined,
-        'Privacy & Security',
-        'Manage your data and encryption',
-        false,
-      ),
-      (
-        Icons.logout,
-        'Sign Out',
-        'Securely exit your account',
-        true,
-      ),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.forest.withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Account Settings', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ...items.map(
-            (e) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: AppColors.white,
-                foregroundColor: e.$4 ? const Color(0xFFB45353) : AppColors.forest,
-                child: Icon(e.$1),
-              ),
-              title: Text(
-                e.$2,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: e.$4 ? const Color(0xFFB45353) : AppColors.textPrimary,
-                ),
-              ),
-              subtitle: Text(e.$3),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
             ),
           ),
         ],

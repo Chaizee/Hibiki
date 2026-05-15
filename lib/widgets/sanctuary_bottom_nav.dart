@@ -35,23 +35,23 @@ class SanctuaryBottomNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(_items.length, (i) {
               final spec = _items[i];
               final selected = i == currentIndex;
               return InkWell(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 onTap: () => onSelect(i),
                 child: Padding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: selected
                               ? AppColors.navHighlight
@@ -60,15 +60,17 @@ class SanctuaryBottomNav extends StatelessWidget {
                         ),
                         child: Icon(
                           spec.icon,
+                          size: 22,
                           color: selected
                               ? AppColors.forest
                               : AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         spec.label,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontSize: 10,
                               color: selected
                                   ? AppColors.forest
                                   : AppColors.textSecondary,
