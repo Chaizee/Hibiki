@@ -5,8 +5,6 @@ import '../data/models/mood_day_record.dart';
 import '../data/models/streak_stats.dart';
 
 class MeStatsService {
-  static const _weekdayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-
   List<DayBalancePoint> last7DayBalance(Map<String, MoodDayRecord> moodByDate) {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
@@ -21,7 +19,7 @@ class MeStatsService {
       points.add(
         DayBalancePoint(
           date: date,
-          weekdayLabel: _weekdayLabels[date.weekday - 1],
+          weekdayIndex: date.weekday,
           barHeight: barHeight,
           hasData: hasData,
           isToday: i == 0,
@@ -49,7 +47,7 @@ class MeStatsService {
         .map(
           (p) => DayBalancePoint(
             date: p.date,
-            weekdayLabel: p.weekdayLabel,
+            weekdayIndex: p.weekdayIndex,
             barHeight: p.barHeight,
             hasData: p.hasData,
             isToday: p.isToday,
@@ -86,29 +84,26 @@ class MeStatsService {
         .reduce((a, b) => a.value >= b.value ? a : b)
         .key;
 
-    final label = _vibeLabel(avgStress, dominant);
-    final icon = _vibeIcon(dominant, avgStress);
-
     return WeeklyVibeSummary(
-      label: label,
+      labelKey: _vibeLabelKey(avgStress, dominant),
       positivePercent: positive,
-      icon: icon,
+      icon: _vibeIcon(dominant, avgStress),
       daysWithData: records.length,
       dominantEmotion: dominant,
     );
   }
 
-  String explorerTitle(StreakStats streak, Map<String, MoodDayRecord> moodByDate) {
-    if (streak.totalCheckInDays == 0) return 'Исследователь осознанности';
-    if (streak.level >= 8) return 'Мастер резонанса';
-    if (streak.level >= 4) return 'Голосовой наставник';
-    if (streak.currentStreak >= 7) return 'Хранитель ритма';
+  String explorerTitleKey(StreakStats streak, Map<String, MoodDayRecord> moodByDate) {
+    if (streak.totalCheckInDays == 0) return 'default';
+    if (streak.level >= 8) return 'master';
+    if (streak.level >= 4) return 'mentor';
+    if (streak.currentStreak >= 7) return 'rhythm';
     final vibe = weeklyVibe(moodByDate);
     return switch (vibe.dominantEmotion) {
-      'joyful' => 'Светлый голос',
-      'tense' => 'Искатель баланса',
-      'calm' => 'Хранитель спокойствия',
-      _ => 'Исследователь осознанности',
+      'joyful' => 'bright',
+      'tense' => 'seeker',
+      'calm' => 'calm',
+      _ => 'default',
     };
   }
 
@@ -117,72 +112,63 @@ class MeStatsService {
     required Map<String, MoodDayRecord> moodByDate,
     required int journalCount,
   }) {
-    final calmDays =
-        moodByDate.values.where((r) => r.emotion == 'calm').length;
-    final joyfulDays =
-        moodByDate.values.where((r) => r.emotion == 'joyful').length;
+    final calmDays = moodByDate.values.where((r) => r.emotion == 'calm').length;
+    final joyfulDays = moodByDate.values.where((r) => r.emotion == 'joyful').length;
     final total = streak.totalCheckInDays;
 
     return [
       MilestoneItem(
         id: 'first',
-        title: 'Первое слово',
-        subtitle: total >= 1 ? 'ПЕРВАЯ ЗАПИСЬ ГОЛОСА' : 'ЗАПИШИТЕ ГОЛОС НА LISTEN',
         icon: Icons.workspace_premium,
         unlocked: total >= 1,
-        iconBg: const Color(0xFFD9F2B1),
+        totalDays: total,
       ),
       MilestoneItem(
         id: 'week',
-        title: 'Неделя силы',
-        subtitle: streak.currentStreak >= 7 || streak.longestStreak >= 7
-            ? '7 ДНЕЙ ПОДРЯД'
-            : 'СЕРИЯ 7 ДНЕЙ',
         icon: Icons.local_fire_department,
         unlocked: streak.longestStreak >= 7,
-        iconBg: const Color(0xFFFFE8CC),
+        totalDays: total,
       ),
       MilestoneItem(
         id: 'sleep',
-        title: 'Вечерний мудрец',
-        subtitle: total >= 7 ? '7 CHECK-IN' : '${7 - total} ДО 7 ЗАПИСЕЙ',
         icon: Icons.nightlight_round,
         unlocked: total >= 7,
         iconBg: const Color(0xFFE5E5E5),
+        totalDays: total,
       ),
       MilestoneItem(
         id: 'calm',
-        title: 'Поток спокойствия',
-        subtitle: calmDays >= 5 ? '5 СПОКОЙНЫХ ДНЕЙ' : '$calmDays / 5 СПОКОЙНЫХ',
         icon: Icons.spa_outlined,
         unlocked: calmDays >= 5,
         iconBg: const Color(0xFFD9E8E1),
+        calmDays: calmDays,
+        totalDays: total,
       ),
       MilestoneItem(
         id: 'joy',
-        title: 'Искра радости',
-        subtitle: joyfulDays >= 3 ? '3 РАДОСТНЫХ ДНЯ' : '$joyfulDays / 3 РАДОСТНЫХ',
         icon: Icons.auto_awesome,
         unlocked: joyfulDays >= 3,
         iconBg: const Color(0xFFFFF3C4),
+        joyfulDays: joyfulDays,
+        totalDays: total,
       ),
       MilestoneItem(
         id: 'journal',
-        title: 'Дневник души',
-        subtitle: journalCount >= 3 ? '3 ЗАПИСИ В NOTES' : '$journalCount / 3 ЗАПИСЕЙ',
         icon: Icons.menu_book_outlined,
         unlocked: journalCount >= 3,
         iconBg: const Color(0xFFE8E4DC),
+        journalCount: journalCount,
+        totalDays: total,
       ),
     ];
   }
 
-  String _vibeLabel(double avgStress, String emotion) {
+  String _vibeLabelKey(double avgStress, String emotion) {
     if (avgStress < 35) {
-      return emotion == 'joyful' ? 'Сияющий' : 'Гармоничный';
+      return emotion == 'joyful' ? 'radiant' : 'harmonious';
     }
-    if (avgStress < 60) return 'Уравновешенный';
-    return 'Напряжённый';
+    if (avgStress < 60) return 'balanced';
+    return 'heavy';
   }
 
   IconData _vibeIcon(String emotion, double avgStress) {

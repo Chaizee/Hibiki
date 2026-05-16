@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/models/me_profile_models.dart';
+import '../../l10n/l10n_extensions.dart';
 import '../../state/sanctuary_state.dart';
 import 'account_settings_screen.dart';
 
@@ -12,6 +13,7 @@ class MeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final state = context.watch<SanctuaryState>();
     final balance = state.last7DayBalance;
     final vibe = state.weeklyVibe;
@@ -39,7 +41,7 @@ class MeScreen extends StatelessWidget {
                       },
                       icon: const Icon(Icons.settings_outlined),
                       color: AppColors.forest,
-                      tooltip: 'Account settings',
+                      tooltip: l10n.accountSettings,
                     ),
                   ),
                   Stack(
@@ -80,7 +82,7 @@ class MeScreen extends StatelessWidget {
                         ),
                   ),
                   Text(
-                    '🛡️ ${state.explorerTitle}',
+                    '🛡️ ${l10n.explorerTitle(state.explorerTitleKey)}',
                     style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -89,14 +91,14 @@ class MeScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _Badge(
-                        label: 'LEVEL ${state.streakStats.level}',
+                        label: l10n.level(state.streakStats.level),
                         color: AppColors.limeBadge,
                       ),
                       const SizedBox(width: 10),
                       _Badge(
                         label: state.streakStats.currentStreak > 0
-                            ? '${state.streakStats.currentStreak} DAY STREAK'
-                            : 'START STREAK',
+                            ? l10n.dayStreak(state.streakStats.currentStreak)
+                            : l10n.meStartStreak,
                         color: const Color(0xFFE8E4DC),
                       ),
                     ],
@@ -104,7 +106,7 @@ class MeScreen extends StatelessWidget {
                   if (state.streakStats.totalCheckInDays > 0) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Best Streak: ${state.streakStats.longestStreak} · Total Days: ${state.streakStats.totalCheckInDays}',
+                      '${l10n.meBestStreak}: ${state.streakStats.longestStreak} · ${l10n.meTotalDays}: ${state.streakStats.totalCheckInDays}',
                       style: Theme.of(context).textTheme.bodySmall,
                       textAlign: TextAlign.center,
                     ),
@@ -117,14 +119,14 @@ class MeScreen extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Personal Milestones',
+                      l10n.milestonesTitle,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   const SizedBox(height: 10),
                   if (unlockedMilestones.isEmpty)
                     Text(
-                      'Выполняйте задания ниже — достижения появятся здесь.',
+                      l10n.milestonesEmpty,
                       style: Theme.of(context).textTheme.bodySmall,
                     )
                   else
@@ -189,6 +191,7 @@ class _EmotionalBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final hasAnyData = points.any((p) => p.hasData);
 
     return Container(
@@ -211,7 +214,7 @@ class _EmotionalBalanceCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Emotional Balance',
+                  l10n.emotionalBalance,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -220,9 +223,7 @@ class _EmotionalBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            hasAnyData
-                ? 'Резонанс голоса за последние 7 дней'
-                : 'Запишите голос — график заполнится автоматически',
+            hasAnyData ? l10n.balanceHasData : l10n.balanceEmpty,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 18),
@@ -269,7 +270,7 @@ class _EmotionalBalanceCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          p.weekdayLabel,
+                          l10n.weekdayLabel(p.weekdayIndex),
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             height: 1.1,
@@ -299,6 +300,7 @@ class _WeeklyVibeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final ringFill = vibe.daysWithData == 0
         ? 0.15
         : (vibe.positivePercent / 100).clamp(0.2, 1.0);
@@ -313,14 +315,14 @@ class _WeeklyVibeCard extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Weekly Vibe',
+            l10n.weeklyVibe,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 6),
           Text(
             vibe.daysWithData == 0
-                ? 'Нет записей за эту неделю'
-                : '${vibe.daysWithData} из 7 дней с check-in',
+                ? l10n.weeklyNoData
+                : l10n.weeklyCheckIns(vibe.daysWithData),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 18),
@@ -354,7 +356,7 @@ class _WeeklyVibeCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            vibe.label,
+            l10n.vibeLabel(vibe.labelKey),
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -363,8 +365,8 @@ class _WeeklyVibeCard extends StatelessWidget {
           ),
           Text(
             vibe.daysWithData == 0
-                ? 'Сделайте запись на Listen'
-                : '${vibe.positivePercent}% Positive Resonance',
+                ? l10n.weeklyRecordListen
+                : l10n.positiveResonance(vibe.positivePercent),
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -380,6 +382,16 @@ class _MilestoneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final texts = l10n.milestone(
+      milestone.id,
+      unlocked: milestone.unlocked,
+      calmDays: milestone.calmDays,
+      joyfulDays: milestone.joyfulDays,
+      totalDays: milestone.totalDays,
+      journalCount: milestone.journalCount,
+    );
+
     return Container(
       width: 140,
       padding: const EdgeInsets.all(14),
@@ -404,11 +416,11 @@ class _MilestoneCard extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            milestone.title,
+            texts.$1,
             style: Theme.of(context).textTheme.titleSmall,
           ),
           Text(
-            milestone.subtitle,
+            texts.$2,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(

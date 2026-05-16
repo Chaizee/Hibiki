@@ -4,15 +4,18 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/screen_layout.dart';
+import '../../data/models/recommendation.dart';
+import '../../l10n/l10n_extensions.dart';
+import '../../l10n/mood_result_l10n.dart';
 import '../../state/sanctuary_state.dart';
 import '../../widgets/mood_card.dart';
-import '../../data/models/recommendation.dart';
 
 class ListenScreen extends StatelessWidget {
   const ListenScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final state = context.watch<SanctuaryState>();
     final result = state.lastResult;
 
@@ -32,38 +35,43 @@ class ListenScreen extends StatelessWidget {
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w600,
                     ),
-                    children: const [
-                      TextSpan(text: 'How is your '),
+                    children: [
+                      TextSpan(text: l10n.listenTitle1),
                       TextSpan(
-                        text: 'inner voice',
-                        style: TextStyle(fontStyle: FontStyle.italic),
+                        text: l10n.listenTitleEmphasis,
+                        style: const TextStyle(fontStyle: FontStyle.italic),
                       ),
-                      TextSpan(text: ' today?'),
+                      TextSpan(text: l10n.listenTitle2),
                     ],
                   ),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Your sanctuary is ready for a check-in.',
+                  l10n.listenSubtitle,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 22),
                 MoodCard(
-                  moodLabel: result?.moodLabel ?? 'Serene & Calm',
-                  tags: result?.tags ??
-                      const ['Consistent Frequency', 'Warm Tone'],
+                  moodLabel: result != null
+                      ? result.localizedMoodLabel(l10n)
+                      : l10n.moodSerene,
+                  tags: result?.localizedTags(l10n) ??
+                      [l10n.tagConsistent, l10n.tagWarm],
                   stressLevel: result?.stressLevel ?? 24,
+                  stressCaption: l10n.stressLevel(
+                    (result?.stressLevel ?? 24).round(),
+                  ),
                 ),
                 const SizedBox(height: 28),
                 Center(child: _RecordOrb(state: state)),
                 const SizedBox(height: 10),
                 Center(
                   child: Text(
-                    state.phase == VoiceSessionPhase.recording
-                        ? 'Tap again to finish and analyze'
-                        : state.phase == VoiceSessionPhase.processing
-                            ? 'Processing your voice…'
-                            : 'Tap to capture your essence.',
+                    switch (state.phase) {
+                      VoiceSessionPhase.recording => l10n.listenRecordingHint,
+                      VoiceSessionPhase.processing => l10n.listenProcessingHint,
+                      _ => l10n.listenRecordHint,
+                    },
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -82,12 +90,12 @@ class ListenScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Personalized For You',
+                      l10n.listenPersonalized,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     TextButton(
                       onPressed: () => state.refreshRecommendations(),
-                      child: const Text('View All'),
+                      child: Text(l10n.viewAll),
                     ),
                   ],
                 ),
@@ -107,7 +115,7 @@ class ListenScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 _PeakInsightCard(
                   stress: result?.stressLevel ?? 28,
-                  onLog: () => _toast(context, 'Peak moment logged (stub)'),
+                  onLog: () {},
                 ),
                 const SizedBox(height: 20),
               ],
@@ -116,10 +124,6 @@ class ListenScreen extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }
 
@@ -130,6 +134,7 @@ class _RecordOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final recording = state.phase == VoiceSessionPhase.recording;
     final busy = state.phase == VoiceSessionPhase.processing;
 
@@ -173,7 +178,7 @@ class _RecordOrb extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    recording ? 'STOP' : 'RECORD',
+                    recording ? l10n.stop : l10n.record,
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.2,
@@ -195,6 +200,10 @@ class _RecoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final title = l10n.recoTitle(reco.id);
+    final subtitle = l10n.recoSubtitle(reco.id);
+
     return Container(
       width: wide ? 220 : 150,
       padding: const EdgeInsets.all(16),
@@ -232,11 +241,18 @@ class _RecoCard extends StatelessWidget {
             ),
           const Spacer(),
           Text(
-            reco.title,
+            title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall,
           ),
+          if (subtitle.isNotEmpty)
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           if (reco.durationLabel != null)
             Text(
               reco.durationLabel!,
@@ -256,6 +272,7 @@ class _PeakInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final vibrant = stress < 35;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -283,15 +300,13 @@ class _PeakInsightCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  vibrant
-                      ? 'You sound particularly vibrant today! Would you like to log this as a peak energy moment?'
-                      : 'Your voice shows some tension. A short breathing reset may help.',
+                  vibrant ? l10n.peakVibrant : l10n.peakTense,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: onLog,
-                  child: const Text('LOG MOMENT'),
+                  child: Text(l10n.logMoment),
                 ),
               ],
             ),

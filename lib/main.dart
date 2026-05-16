@@ -6,6 +6,7 @@ import 'core/config/app_config.dart';
 import 'data/api/sanctuary_api_client.dart';
 import 'services/voice_analysis_service.dart';
 import 'services/voice_recording_service.dart';
+import 'state/locale_controller.dart';
 import 'state/sanctuary_state.dart';
 
 void main() {
@@ -16,12 +17,19 @@ void main() {
   final analysis = VoiceAnalysisService(api: api);
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => SanctuaryState(
-        api: api,
-        recording: recording,
-        analysis: analysis,
-      )..initialize(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => LocaleController()..load(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => SanctuaryState(
+            api: api,
+            recording: recording,
+            analysis: analysis,
+          )..initialize(),
+        ),
+      ],
       child: const SanctuaryApp(),
     ),
   );
