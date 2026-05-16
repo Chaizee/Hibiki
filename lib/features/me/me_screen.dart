@@ -3,19 +3,20 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../data/models/me_profile_models.dart';
 import '../../state/sanctuary_state.dart';
 import 'account_settings_screen.dart';
 
 class MeScreen extends StatelessWidget {
   const MeScreen({super.key});
 
-  static const _week = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  static const _heights = [0.45, 0.55, 0.5, 0.85, 0.48, 0.62, 0.58];
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<SanctuaryState>();
-    final stress = state.lastResult?.stressLevel ?? 30;
+    final balance = state.last7DayBalance;
+    final vibe = state.weeklyVibe;
+    final unlockedMilestones =
+        state.milestones.where((m) => m.unlocked).toList();
 
     return CustomScrollView(
       slivers: [
@@ -26,100 +27,123 @@ class MeScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
               child: Column(
                 children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    onPressed: () {
-                      Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AccountSettingsScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.settings_outlined),
-                    color: AppColors.forest,
-                    tooltip: 'Account settings',
-                  ),
-                ),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundColor: AppColors.mint,
-                      child: Icon(Icons.face_retouching_natural,
-                          size: 52, color: AppColors.forestDeep),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      onPressed: () {
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AccountSettingsScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.settings_outlined),
+                      color: AppColors.forest,
+                      tooltip: 'Account settings',
                     ),
-                    Positioned(
-                      right: -4,
-                      bottom: -4,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: AppColors.sage,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.edit, size: 16, color: AppColors.white),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Elena Vance',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                Text(
-                  '🛡️ Mindfulness Explorer',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    _Badge(label: 'LEVEL 14', color: AppColors.limeBadge),
-                    SizedBox(width: 10),
-                    _Badge(label: '32 DAY STREAK', color: Color(0xFFE8E4DC)),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                _EmotionalBalanceCard(heights: _heights),
-                const SizedBox(height: 16),
-                _WeeklyVibeCard(stress: stress),
-                const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Personal Milestones',
-                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 130,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: const [
-                      _MilestoneCard(
-                        title: 'First Word',
-                        subtitle: 'FIRST SESSION RECORDED',
-                        icon: Icons.workspace_premium,
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: AppColors.mint,
+                        child: Icon(
+                          Icons.face_retouching_natural,
+                          size: 52,
+                          color: AppColors.forestDeep,
+                        ),
                       ),
-                      SizedBox(width: 12),
-                      _MilestoneCard(
-                        title: 'Sleep Sage',
-                        subtitle: '7 NIGHT RECORDINGS',
-                        icon: Icons.nightlight_round,
-                        iconBg: Color(0xFFE5E5E5),
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: AppColors.sage,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.edit,
+                            size: 16,
+                            color: AppColors.white,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 100),
-              ],
-            ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Elena Vance',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  Text(
+                    '🛡️ ${state.explorerTitle}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _Badge(
+                        label: 'LEVEL ${state.streakStats.level}',
+                        color: AppColors.limeBadge,
+                      ),
+                      const SizedBox(width: 10),
+                      _Badge(
+                        label: state.streakStats.currentStreak > 0
+                            ? '${state.streakStats.currentStreak} DAY STREAK'
+                            : 'START STREAK',
+                        color: const Color(0xFFE8E4DC),
+                      ),
+                    ],
+                  ),
+                  if (state.streakStats.totalCheckInDays > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Best Streak: ${state.streakStats.longestStreak} · Total Days: ${state.streakStats.totalCheckInDays}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  const SizedBox(height: 22),
+                  _EmotionalBalanceCard(points: balance),
+                  const SizedBox(height: 16),
+                  _WeeklyVibeCard(vibe: vibe),
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Personal Milestones',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (unlockedMilestones.isEmpty)
+                    Text(
+                      'Выполняйте задания ниже — достижения появятся здесь.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  else
+                    SizedBox(
+                      height: 130,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: unlockedMilestones.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(width: 12),
+                        itemBuilder: (context, i) {
+                          final m = unlockedMilestones[i];
+                          return _MilestoneCard(milestone: m);
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),
@@ -155,12 +179,18 @@ class _Badge extends StatelessWidget {
 }
 
 class _EmotionalBalanceCard extends StatelessWidget {
-  const _EmotionalBalanceCard({required this.heights});
+  const _EmotionalBalanceCard({required this.points});
 
-  final List<double> heights;
+  final List<DayBalancePoint> points;
+
+  static const _chartHeight = 124.0;
+  static const _labelHeight = 18.0;
+  static const _maxBarHeight = 92.0;
 
   @override
   Widget build(BuildContext context) {
+    final hasAnyData = points.any((p) => p.hasData);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -190,44 +220,63 @@ class _EmotionalBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Voice frequency analysis over 7 days',
+            hasAnyData
+                ? 'Резонанс голоса за последние 7 дней'
+                : 'Запишите голос — график заполнится автоматически',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 18),
           SizedBox(
-            height: 120,
+            height: _chartHeight,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(7, (i) {
-                final highlight = i == 3;
+              children: List.generate(points.length, (i) {
+                final p = points[i];
+                final barH = _maxBarHeight * p.barHeight;
+                final highlight = p.isPeak && p.hasData;
+
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Expanded(
+                        SizedBox(
+                          height: _chartHeight - _labelHeight,
                           child: Align(
                             alignment: Alignment.bottomCenter,
-                            child: Container(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 400),
                               width: double.infinity,
-                              height: 110 * heights[i],
+                              height: barH,
                               decoration: BoxDecoration(
                                 color: highlight
                                     ? const Color(0xFF4B6332)
-                                    : AppColors.sageLight.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(12),
+                                    : p.hasData
+                                        ? AppColors.sageLight
+                                            .withValues(alpha: 0.75)
+                                        : AppColors.mintSoft,
+                                borderRadius: BorderRadius.circular(10),
+                                border: p.isToday
+                                    ? Border.all(
+                                        color: AppColors.forest
+                                            .withValues(alpha: 0.35),
+                                      )
+                                    : null,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         Text(
-                          MeScreen._week[i],
+                          p.weekdayLabel,
                           style: GoogleFonts.inter(
-                            fontSize: 10,
+                            fontSize: 9,
+                            height: 1.1,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
+                            color: p.isToday
+                                ? AppColors.forest
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -244,14 +293,15 @@ class _EmotionalBalanceCard extends StatelessWidget {
 }
 
 class _WeeklyVibeCard extends StatelessWidget {
-  const _WeeklyVibeCard({required this.stress});
+  const _WeeklyVibeCard({required this.vibe});
 
-  final double stress;
+  final WeeklyVibeSummary vibe;
 
   @override
   Widget build(BuildContext context) {
-    final label = stress < 40 ? 'Radiant' : stress < 65 ? 'Balanced' : 'Heavy';
-    final pct = (100 - stress).clamp(40, 98).round();
+    final ringFill = vibe.daysWithData == 0
+        ? 0.15
+        : (vibe.positivePercent / 100).clamp(0.2, 1.0);
 
     return Container(
       width: double.infinity,
@@ -266,6 +316,13 @@ class _WeeklyVibeCard extends StatelessWidget {
             'Weekly Vibe',
             style: Theme.of(context).textTheme.titleMedium,
           ),
+          const SizedBox(height: 6),
+          Text(
+            vibe.daysWithData == 0
+                ? 'Нет записей за эту неделю'
+                : '${vibe.daysWithData} из 7 дней с check-in',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 18),
           SizedBox(
             height: 120,
@@ -273,20 +330,14 @@ class _WeeklyVibeCard extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Container(
+                SizedBox(
                   width: 120,
                   height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.sageLight.withValues(alpha: 0.25),
-                  ),
-                ),
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.sage.withValues(alpha: 0.35),
+                  child: CircularProgressIndicator(
+                    value: ringFill,
+                    strokeWidth: 10,
+                    backgroundColor: AppColors.sageLight.withValues(alpha: 0.25),
+                    color: AppColors.forest,
                   ),
                 ),
                 Container(
@@ -296,15 +347,14 @@ class _WeeklyVibeCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: AppColors.forest,
                   ),
-                  child: const Icon(Icons.sentiment_satisfied_alt,
-                      color: AppColors.white),
+                  child: Icon(vibe.icon, color: AppColors.white, size: 28),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            label,
+            vibe.label,
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -312,7 +362,9 @@ class _WeeklyVibeCard extends StatelessWidget {
             ),
           ),
           Text(
-            '$pct% Positive Resonance',
+            vibe.daysWithData == 0
+                ? 'Сделайте запись на Listen'
+                : '${vibe.positivePercent}% Positive Resonance',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -322,17 +374,9 @@ class _WeeklyVibeCard extends StatelessWidget {
 }
 
 class _MilestoneCard extends StatelessWidget {
-  const _MilestoneCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    this.iconBg = AppColors.limeBadge,
-  });
+  const _MilestoneCard({required this.milestone});
 
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconBg;
+  final MilestoneItem milestone;
 
   @override
   Widget build(BuildContext context) {
@@ -342,6 +386,7 @@ class _MilestoneCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.sage.withValues(alpha: 0.4)),
         boxShadow: [
           BoxShadow(
             color: AppColors.forest.withValues(alpha: 0.05),
@@ -354,13 +399,16 @@ class _MilestoneCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            backgroundColor: iconBg,
-            child: Icon(icon, color: AppColors.textPrimary),
+            backgroundColor: milestone.iconBg,
+            child: Icon(milestone.icon, color: AppColors.textPrimary),
           ),
           const Spacer(),
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
           Text(
-            subtitle,
+            milestone.title,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          Text(
+            milestone.subtitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(

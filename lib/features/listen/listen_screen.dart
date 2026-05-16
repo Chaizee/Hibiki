@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/screen_layout.dart';
 import '../../state/sanctuary_state.dart';
 import '../../widgets/mood_card.dart';
 import '../../data/models/recommendation.dart';
@@ -19,7 +20,7 @@ class ListenScreen extends StatelessWidget {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            padding: ScreenLayout.screenPadding(context).copyWith(bottom: 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -108,7 +109,7 @@ class ListenScreen extends StatelessWidget {
                   stress: result?.stressLevel ?? 28,
                   onLog: () => _toast(context, 'Peak moment logged (stub)'),
                 ),
-                const SizedBox(height: 100),
+                const SizedBox(height: 20),
               ],
             ),
           ),

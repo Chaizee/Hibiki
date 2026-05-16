@@ -4,6 +4,7 @@ class MoodResult {
     required this.stressLevel,
     required this.moodLabel,
     required this.tags,
+    this.emotion,
     this.resonancePercent,
     this.insightHeadline,
     this.insightBody,
@@ -15,6 +16,9 @@ class MoodResult {
 
   final String moodLabel;
   final List<String> tags;
+
+  /// calm | joyful | tense — matches calendar colors and training labels.
+  final String? emotion;
 
   /// Optional aggregate wellness score for History / Me screens.
   final int? resonancePercent;
@@ -34,6 +38,7 @@ class MoodResult {
           json['moodLabel'] as String? ??
           'Balanced',
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+      emotion: json['emotion'] as String?,
       resonancePercent: (json['resonance_percent'] as num?)?.toInt() ??
           (json['resonancePercent'] as num?)?.toInt(),
       insightHeadline: json['insight_headline'] as String? ??
@@ -48,6 +53,7 @@ class MoodResult {
         'stress_level': stressLevel,
         'mood_label': moodLabel,
         'tags': tags,
+        if (emotion != null) 'emotion': emotion,
         if (resonancePercent != null) 'resonance_percent': resonancePercent,
         if (insightHeadline != null) 'insight_headline': insightHeadline,
         if (insightBody != null) 'insight_body': insightBody,
@@ -59,6 +65,7 @@ class MoodResult {
       stressLevel: 22,
       moodLabel: 'Serene & Calm',
       tags: ['Consistent Frequency', 'Warm Tone'],
+      emotion: 'calm',
       resonancePercent: 84,
       insightHeadline: 'Your voice tends to be deeper on calm days.',
       insightBody:
