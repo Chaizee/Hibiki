@@ -38,4 +38,8 @@ class JournalRepository {
     all.removeWhere((e) => e.id == id);
     await saveAll(all);
   }
+
+  Future<void> replaceAll(List<JournalEntry> entries) async {
+    await saveAll(entries);
+  }
 }
