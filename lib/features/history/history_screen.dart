@@ -3,30 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/screen_layout.dart';
+import '../../data/models/mood_day_record.dart';
 import '../../state/sanctuary_state.dart';
 import '../../widgets/resonance_score_card.dart';
 import '../../widgets/sanctuary_insight_card.dart';
 
-// ВРЕМЕННЫЕ ДАННЫЕ ДЛЯ ПРИМЕРА — замените на ваш API
-class _MockMoodData {
-  static Map<DateTime, MoodEntry> generateForMonth(int year, int month) {
-    final entries = <DateTime, MoodEntry>{};
-    final random = DateTime.now().day; // псевдо-рандом
-    
-    for (int d = 1; d <= DateTime(year, month + 1, 0).day; d++) {
-      final date = DateTime(year, month, d);
-      if (date.isAfter(DateTime.now())) break;
-      
-      // Имитация данных (замените на реальные из SanctuaryState)
-      entries[date] = MoodEntry(
-        date: date,
-        resonanceScore: (d * 7 + random) % 101, // 0-100
-        emotion: ['calm', 'joyful', 'tense'][d % 3],
-      );
-    }
-    return entries;
-  }
-}
+/// Circle row + subtitle row so every column aligns; avoids “low” day numbers.
+const double _kCalCircleExtent = 30;
+const double _kCalSubtitleExtent = 11;
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -37,41 +22,26 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   late DateTime _displayedDate;
-  Map<DateTime, MoodEntry>? _moodData;
 
   @override
   void initState() {
     super.initState();
     _displayedDate = DateTime.now();
-    _loadMoodData();
-  }
-
-  Future<void> _loadMoodData() async {
-    // TODO: Замените на реальный вызов вашей модели
-    // final state = context.read<SanctuaryState>();
-    // final data = await state.fetchMoodData(year: _displayedDate.year, month: _displayedDate.month);
-    
-    setState(() {
-      _moodData = _MockMoodData.generateForMonth(_displayedDate.year, _displayedDate.month);
-    });
   }
 
   void _previousMonth() {
     setState(() {
       _displayedDate = DateTime(_displayedDate.year, _displayedDate.month - 1);
-      _loadMoodData();
     });
   }
 
   void _nextMonth() {
     final nextMonth = DateTime(_displayedDate.year, _displayedDate.month + 1);
     if (nextMonth.isAfter(DateTime(DateTime.now().year, DateTime.now().month + 1))) {
-      // Нельзя переключаться на будущие месяцы (опционально)
       return;
     }
     setState(() {
       _displayedDate = nextMonth;
-      _loadMoodData();
     });
   }
 
@@ -79,12 +49,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<SanctuaryState>();
     final insight = state.lastResult;
+    final todayRecord = state.moodByDate.forDate(DateTime.now());
+    final resonance = todayRecord?.resonanceScore.round() ??
+        insight?.resonancePercent ??
+        0;
 
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            padding: ScreenLayout.screenPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -103,18 +77,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 const SizedBox(height: 20),
                 _CalendarCard(
                   displayedDate: _displayedDate,
-                  moodData: _moodData,
+                  moodByDate: state.moodByDate,
+                  revealDateKey: state.calendarRevealDateKey,
+                  onRevealComplete: state.clearCalendarReveal,
                   onPrevious: _previousMonth,
                   onNext: _nextMonth,
                 ),
                 const SizedBox(height: 20),
                 ResonanceScoreCard(
-                  percent: insight?.resonancePercent ?? 84,
-                  caption:
-                      'Ваше настроение стало стабильнее на 12%, по сравнению с прошлым месяцем. Не сбивайтесь с ритма.',
+                  percent: resonance,
+                  caption: todayRecord != null
+                      ? 'Сегодня: ${todayRecord.moodLabel}. Продолжайте ежедневные check-in.'
+                      : 'Запишите голос на вкладке Listen — день появится в календаре после анализа.',
                 ),
                 const SizedBox(height: 20),
-                const _MoodFrequencyCard(),
+                _MoodFrequencyCard(counts: state.emotionDayCounts),
                 const SizedBox(height: 20),
                 SanctuaryInsightCard(
                   title: insight?.insightHeadline ??
@@ -122,7 +99,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   body: insight?.insightBody ??
                       'Мы заметили связь между вечерними голосовыми заметками и вашим утренним настроением.',
                 ),
-                const SizedBox(height: 100),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -133,27 +110,45 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 String _historyMonthName(int month) {
-  const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const names = [
+    '',
+    'Январь',
+    'Февраль',
+    'Март',
+    'Апрель',
+    'Май',
+    'Июнь',
+    'Июль',
+    'Август',
+    'Сентябрь',
+    'Октябрь',
+    'Ноябрь',
+    'Декабрь',
+  ];
   return names[month];
 }
 
 class _CalendarCard extends StatelessWidget {
   const _CalendarCard({
     required this.displayedDate,
-    required this.moodData,
+    required this.moodByDate,
+    required this.revealDateKey,
+    required this.onRevealComplete,
     required this.onPrevious,
     required this.onNext,
   });
 
   final DateTime displayedDate;
-  final Map<DateTime, MoodEntry>? moodData;
+  final Map<String, MoodDayRecord> moodByDate;
+  final String? revealDateKey;
+  final VoidCallback onRevealComplete;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(28),
@@ -176,8 +171,6 @@ class _CalendarCard extends StatelessWidget {
                   color: AppColors.forest,
                 ),
               ),
-              //const Icon(Icons.expand_more, color: AppColors.forest),
-            
               const Spacer(),
               IconButton(
                 onPressed: onPrevious,
@@ -189,13 +182,15 @@ class _CalendarCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           const _WeekdayRow(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           _MonthGrid(
             month: displayedDate.month,
             year: displayedDate.year,
-            moodData: moodData,
+            moodByDate: moodByDate,
+            revealDateKey: revealDateKey,
+            onRevealComplete: onRevealComplete,
           ),
           const SizedBox(height: 16),
         ],
@@ -204,7 +199,21 @@ class _CalendarCard extends StatelessWidget {
   }
 
   String _monthName(int m) {
-    const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    const names = [
+      '',
+      'Январь',
+      'Февраль',
+      'Март',
+      'Апрель',
+      'Май',
+      'Июнь',
+      'Июль',
+      'Август',
+      'Сентябрь',
+      'Октябрь',
+      'Ноябрь',
+      'Декабрь',
+    ];
     return names[m];
   }
 }
@@ -217,7 +226,18 @@ class _WeekdayRow extends StatelessWidget {
     const days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: days.map((d) => Text(d, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary))).toList(),
+      children: days
+          .map(
+            (d) => Text(
+              d,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -226,12 +246,16 @@ class _MonthGrid extends StatelessWidget {
   const _MonthGrid({
     required this.month,
     required this.year,
-    required this.moodData,
+    required this.moodByDate,
+    required this.revealDateKey,
+    required this.onRevealComplete,
   });
 
   final int month;
   final int year;
-  final Map<DateTime, MoodEntry>? moodData;
+  final Map<String, MoodDayRecord> moodByDate;
+  final String? revealDateKey;
+  final VoidCallback onRevealComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -241,17 +265,20 @@ class _MonthGrid extends StatelessWidget {
 
     final cells = <Widget>[];
     for (var i = 0; i < leadingBlanks; i++) {
-      cells.add(const SizedBox());
+      cells.add(const _CalendarBlankSlot());
     }
     for (var d = 1; d <= daysInMonth; d++) {
       final date = DateTime(year, month, d);
-      final entry = moodData?[date];
-      cells.add(_DayCell(
-        day: d,
-        month: month,
-        year: year,
-        moodEntry: entry,
-      ));
+      final key = MoodDayRecord.dateKeyFrom(date);
+      cells.add(
+        _DayCell(
+          day: d,
+          date: date,
+          record: moodByDate[key],
+          animateReveal: revealDateKey == key,
+          onRevealComplete: onRevealComplete,
+        ),
+      );
     }
 
     return GridView.builder(
@@ -259,132 +286,255 @@ class _MonthGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 6,
-        childAspectRatio: 0.72,
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 4,
+        childAspectRatio: 0.68,
       ),
       itemCount: cells.length,
-      itemBuilder: (context, index) => cells[index],
+      itemBuilder: (context, index) => Align(
+        alignment: Alignment.topCenter,
+        child: cells[index],
+      ),
     );
   }
 }
 
-class _DayCell extends StatelessWidget {
+class _CalendarBlankSlot extends StatelessWidget {
+  const _CalendarBlankSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _kCalCircleExtent + _kCalSubtitleExtent,
+      width: _kCalCircleExtent,
+    );
+  }
+}
+
+class _DayCell extends StatefulWidget {
   const _DayCell({
     required this.day,
-    required this.month,
-    required this.year,
-    required this.moodEntry,
+    required this.date,
+    required this.record,
+    required this.animateReveal,
+    required this.onRevealComplete,
   });
 
   final int day;
-  final int month;
-  final int year;
-  final MoodEntry? moodEntry;
+  final DateTime date;
+  final MoodDayRecord? record;
+  final bool animateReveal;
+  final VoidCallback onRevealComplete;
+
+  @override
+  State<_DayCell> createState() => _DayCellState();
+}
+
+class _DayCellState extends State<_DayCell> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+  bool _revealed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    _scale = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
+    _revealed = widget.record != null && !widget.animateReveal;
+    if (widget.record != null && widget.animateReveal) {
+      _controller.forward().then((_) {
+        widget.onRevealComplete();
+        if (mounted) setState(() => _revealed = true);
+      });
+    } else if (widget.record != null) {
+      _controller.value = 1;
+      _revealed = true;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _DayCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.record != null &&
+        widget.animateReveal &&
+        oldWidget.record == null) {
+      _controller.forward(from: 0).then((_) {
+        widget.onRevealComplete();
+        if (mounted) setState(() => _revealed = true);
+      });
+    }
+    if (widget.record != null && !widget.animateReveal && !_revealed) {
+      _controller.value = 1;
+      _revealed = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final date = DateTime(year, month, day);
-    final isToday = today.year == year && today.month == month && today.day == day;
-    final isFuture = date.isAfter(today);
-    final isAddSlot = day == today.day + 1 && today.year == year && today.month == month && day <= DateTime(year, month + 1, 0).day;
+    final isToday = today.year == widget.date.year &&
+        today.month == widget.date.month &&
+        today.day == widget.day;
+    final isFuture = widget.date.isAfter(
+      DateTime(today.year, today.month, today.day),
+    );
 
-    // Будущие дни (недоступны)
-    if (isFuture && !isAddSlot) {
-      return Center(
-        child: Text('$day', style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary.withValues(alpha: 0.35))),
-      );
-    }
-
-    // Кнопка добавления записи
-    if (isAddSlot) {
+    if (isFuture) {
       return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.sage.withValues(alpha: 0.5)),
+          SizedBox(
+            height: _kCalCircleExtent,
+            width: _kCalCircleExtent,
+            child: Center(
+              child: Text(
+                '${widget.day}',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: AppColors.textSecondary.withValues(alpha: 0.35),
+                ),
+              ),
             ),
-            child: const Icon(Icons.add, size: 18, color: AppColors.sage),
           ),
+          const SizedBox(height: _kCalSubtitleExtent),
         ],
       );
     }
 
-    // Цвет из модели или серый по умолчанию
-    final backgroundColor = moodEntry?.moodColor ?? AppColors.mintSoft;
-    
-    // Иконка в зависимости от эмоции
-    IconData emotionIcon = Icons.favorite;
-    switch (moodEntry?.emotion) {
-      case 'calm':
-        emotionIcon = Icons.pets;
-        break;
-      case 'joyful':
-        emotionIcon = Icons.pets;
-        break;
-      case 'tense':
-        emotionIcon = Icons.pets;
-        break;
-      default:
-        emotionIcon = Icons.pets;
-    }
-
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
+    final record = widget.record;
+    if (record == null || record.emotion.isEmpty) {
+      return _dayCellLayout(
+        isToday: isToday,
+        child: Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: backgroundColor,
-            border: isToday ? Border.all(color: AppColors.forest, width: 2.5) : null,
+            border: Border.all(
+              color: isToday
+                  ? AppColors.forest.withValues(alpha: 0.5)
+                  : AppColors.mintSoft,
+              width: isToday ? 2 : 1,
+            ),
           ),
-          child: Icon(emotionIcon, size: 18, color: AppColors.forestDeep),
+          child: Text(
+            '${widget.day}',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary.withValues(alpha: 0.7),
+            ),
+          ),
         ),
-        if (isToday)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text('СЕГОДНЯ', style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.forest)),
-          )
-        else
-          const SizedBox(height: 4),
+      );
+    }
+
+    return _dayCellLayout(
+      isToday: isToday,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.2, end: 1).animate(_scale),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: record.moodColor,
+            border: isToday
+                ? Border.all(color: AppColors.forest, width: 2)
+                : null,
+          ),
+          child: Icon(
+            record.emotionIcon,
+            size: 14,
+            color: AppColors.forestDeep,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dayCellLayout({required bool isToday, required Widget child}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          height: _kCalCircleExtent,
+          width: _kCalCircleExtent,
+          child: Center(child: child),
+        ),
+        SizedBox(
+          height: _kCalSubtitleExtent,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: isToday
+                ? Text(
+                    'Today',
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: GoogleFonts.inter(
+                      fontSize: 7,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.forest,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
       ],
     );
   }
 }
 
-
-// Класс MoodEntry (вынесите в отдельный файл)
-class MoodEntry {
-  final DateTime date;
-  final double? resonanceScore;
-  final String? emotion;
-
-  MoodEntry({required this.date, this.resonanceScore, this.emotion});
-
-  Color get moodColor {
-    if (resonanceScore == null) return AppColors.mintSoft;
-    if (resonanceScore! >= 75) return const Color.fromARGB(255, 168, 194, 182);
-    if (resonanceScore! >= 50) return const Color.fromARGB(255, 222, 213, 187);
-    return const Color.fromARGB(255, 227, 184, 184);
-  }
-}
-
-
 class _MoodFrequencyCard extends StatelessWidget {
-  const _MoodFrequencyCard();
+  const _MoodFrequencyCard({required this.counts});
+
+  final Map<String, int> counts;
 
   @override
   Widget build(BuildContext context) {
-    const rows = [
-      _FreqRow(label: 'Спокойствие', emoji: '😌', value: 0.75, days: '12 дней', color: AppColors.forest),
-      _FreqRow(label: 'Радость', emoji: '😊', value: 0.5, days: '8 дней', color: AppColors.sage),
-      _FreqRow(label: 'Напряжение', emoji: '🤯', value: 0.22, days: '3 дня', color: AppColors.tenseBar),
+    final total = counts.values.fold<int>(0, (a, b) => a + b);
+    final calm = counts['calm'] ?? 0;
+    final joyful = counts['joyful'] ?? 0;
+    final tense = counts['tense'] ?? 0;
+
+    double ratio(int n) => total == 0 ? 0 : n / total;
+
+    final rows = [
+      _FreqRow(
+        label: 'Спокойствие',
+        emoji: '😌',
+        value: ratio(calm),
+        days: total == 0 ? '—' : '$calm ${_daysLabel(calm)}',
+        color: AppColors.forest,
+      ),
+      _FreqRow(
+        label: 'Радость',
+        emoji: '😊',
+        value: ratio(joyful),
+        days: total == 0 ? '—' : '$joyful ${_daysLabel(joyful)}',
+        color: AppColors.sage,
+      ),
+      _FreqRow(
+        label: 'Напряжение',
+        emoji: '🤯',
+        value: ratio(tense),
+        days: total == 0 ? '—' : '$tense ${_daysLabel(tense)}',
+        color: AppColors.tenseBar,
+      ),
     ];
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -411,13 +561,23 @@ class _MoodFrequencyCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          ...rows.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: r,
-              )),
+          ...rows.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: r,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String _daysLabel(int n) {
+    if (n % 10 == 1 && n % 100 != 11) return 'день';
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) {
+      return 'дня';
+    }
+    return 'дней';
   }
 }
 

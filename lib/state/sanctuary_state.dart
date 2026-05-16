@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 import '../core/config/app_config.dart';
 import '../data/api/sanctuary_api_client.dart';
 import '../data/models/journal_entry.dart';
+import '../data/models/mood_day_record.dart';
 import '../data/models/mood_result.dart';
 import '../data/models/recommendation.dart';
+import '../data/models/streak_stats.dart';
+import '../data/repositories/mood_history_repository.dart';
+import '../data/models/me_profile_models.dart';
+import '../services/me_stats_service.dart';
+import '../services/streak_calculator.dart';
 import '../services/voice_analysis_service.dart';
 import '../services/voice_recording_service.dart';
 
@@ -15,13 +21,21 @@ class SanctuaryState extends ChangeNotifier {
     required SanctuaryApiClient api,
     required VoiceRecordingService recording,
     required VoiceAnalysisService analysis,
+    MoodHistoryRepository? moodHistoryRepository,
+    StreakCalculator? streakCalculator,
   })  : _api = api,
         _recording = recording,
-        _analysis = analysis;
+        _analysis = analysis,
+        _moodHistoryRepo = moodHistoryRepository ?? MoodHistoryRepository(),
+        _streakCalculator = streakCalculator ?? StreakCalculator(),
+        _meStats = MeStatsService();
 
   final SanctuaryApiClient _api;
   final VoiceRecordingService _recording;
   final VoiceAnalysisService _analysis;
+  final MoodHistoryRepository _moodHistoryRepo;
+  final StreakCalculator _streakCalculator;
+  final MeStatsService _meStats;
 
   int tabIndex = 0;
 
@@ -29,13 +43,23 @@ class SanctuaryState extends ChangeNotifier {
   MoodResult? lastResult;
   String? lastError;
 
+  Map<String, MoodDayRecord> moodByDate = {};
+  StreakStats streakStats = StreakStats.empty;
+
+  /// After voice analysis, History calendar animates this day (yyyy-MM-dd).
+  String? calendarRevealDateKey;
+
   List<Recommendation> recommendations = _defaultRecommendations();
   List<JournalEntry> journalEntries = _seedJournal();
 
   String notesPulse = 'Steady';
 
   Future<void> initialize() async {
+    await _analysis.initialize();
+    moodByDate = await _moodHistoryRepo.loadAll();
+    _recomputeStreak();
     await refreshRecommendations();
+    notifyListeners();
   }
 
   Future<void> refreshRecommendations() async {
@@ -53,6 +77,37 @@ class SanctuaryState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _recomputeStreak() {
+    streakStats = _streakCalculator.compute(moodByDate.keys.toSet());
+  }
+
+  List<DayBalancePoint> get last7DayBalance =>
+      _meStats.last7DayBalance(moodByDate);
+
+  WeeklyVibeSummary get weeklyVibe => _meStats.weeklyVibe(moodByDate);
+
+  String get explorerTitle => _meStats.explorerTitle(streakStats, moodByDate);
+
+  List<MilestoneItem> get milestones => _meStats.milestones(
+        streak: streakStats,
+        moodByDate: moodByDate,
+        journalCount: _userJournalSaveCount,
+      );
+
+  /// Entries saved by the user (excludes short seeded demo ids like `1`, `2`).
+  int get _userJournalSaveCount =>
+      journalEntries.where((e) => e.id.length >= 12).length;
+
+  Map<String, int> get emotionDayCounts {
+    final counts = {'calm': 0, 'joyful': 0, 'tense': 0};
+    for (final record in moodByDate.values) {
+      if (counts.containsKey(record.emotion)) {
+        counts[record.emotion] = counts[record.emotion]! + 1;
+      }
+    }
+    return counts;
+  }
+
   void setTab(int index) {
     tabIndex = index;
     notifyListeners();
@@ -60,6 +115,12 @@ class SanctuaryState extends ChangeNotifier {
 
   void setNotesPulse(String value) {
     notesPulse = value;
+    notifyListeners();
+  }
+
+  void clearCalendarReveal() {
+    if (calendarRevealDateKey == null) return;
+    calendarRevealDateKey = null;
     notifyListeners();
   }
 
@@ -92,6 +153,7 @@ class SanctuaryState extends ChangeNotifier {
         throw StateError('No audio file produced');
       }
       lastResult = await _analysis.analyzeVoice(path);
+      await _persistVoiceResult(lastResult!);
       phase = VoiceSessionPhase.idle;
       notifyListeners();
     } catch (e, st) {
@@ -100,6 +162,34 @@ class SanctuaryState extends ChangeNotifier {
       lastError = e.toString();
       notifyListeners();
     }
+  }
+
+  Future<void> _persistVoiceResult(MoodResult result) async {
+    final now = DateTime.now();
+    final key = MoodDayRecord.dateKeyFrom(now);
+    final emotion = result.emotion ?? _emotionFromStress(result.stressLevel);
+    final resonance =
+        (result.resonancePercent ?? (100 - result.stressLevel)).toDouble();
+
+    final record = MoodDayRecord(
+      dateKey: key,
+      emotion: emotion,
+      resonanceScore: resonance,
+      stressLevel: result.stressLevel,
+      moodLabel: result.moodLabel,
+      recordedAt: now,
+    );
+
+    moodByDate = {...moodByDate, key: record};
+    await _moodHistoryRepo.upsert(record);
+    _recomputeStreak();
+    calendarRevealDateKey = key;
+  }
+
+  String _emotionFromStress(double stress) {
+    if (stress >= 60) return 'tense';
+    if (stress <= 35) return 'joyful';
+    return 'calm';
   }
 
   Future<void> saveReflection({
@@ -130,6 +220,7 @@ class SanctuaryState extends ChangeNotifier {
   @override
   void dispose() {
     _recording.dispose();
+    _analysis.dispose();
     super.dispose();
   }
 
