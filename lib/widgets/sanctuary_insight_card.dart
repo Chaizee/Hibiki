@@ -2,23 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/theme/app_colors.dart';
+import '../l10n/l10n_extensions.dart';
 
 class SanctuaryInsightCard extends StatelessWidget {
   const SanctuaryInsightCard({
     super.key,
     required this.title,
     required this.body,
-    this.actionLabel = 'Explore Trends',
     this.onAction,
   });
 
   final String title;
   final String body;
-  final String actionLabel;
   final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -40,7 +41,7 @@ class SanctuaryInsightCard extends StatelessWidget {
                 Icon(Icons.auto_awesome, size: 16, color: AppColors.forest),
                 const SizedBox(width: 6),
                 Text(
-                  'SANCTUARY INSIGHT',
+                  l10n.insightCardBadge,
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     letterSpacing: 1.1,
@@ -73,7 +74,7 @@ class SanctuaryInsightCard extends StatelessWidget {
           TextButton(
             onPressed: onAction,
             child: Text(
-              '$actionLabel →',
+              '${l10n.insightExploreTrends} →',
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w700,
                 color: AppColors.forest,
@@ -102,7 +103,7 @@ class SanctuaryInsightCard extends StatelessWidget {
                   Icon(Icons.graphic_eq, size: 36, color: AppColors.forest),
                   const SizedBox(height: 6),
                   Text(
-                    'FREQUENCY SHIFT',
+                    l10n.insightFrequencyShift,
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       letterSpacing: 1,

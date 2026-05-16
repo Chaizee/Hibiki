@@ -81,11 +81,13 @@ class SanctuaryApiClient {
     final list = jsonDecode(response.body) as List<dynamic>;
     return list.map((e) {
       final m = e as Map<String, dynamic>;
+      final snippet = (m['snippet'] as String?) ?? (m['body'] as String?) ?? '';
       return JournalEntry(
         id: m['id'] as String,
-        title: m['title'] as String,
+        title: m['title'] as String? ?? '',
+        body: (m['body'] as String?) ?? snippet,
         timestamp: DateTime.parse(m['created_at'] as String),
-        snippet: (m['snippet'] as String?) ?? '',
+        snippet: snippet,
         iconKey: m['icon'] as String? ?? 'smile',
       );
     }).toList();

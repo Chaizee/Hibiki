@@ -10,11 +10,13 @@ class MoodCard extends StatelessWidget {
     required this.moodLabel,
     required this.tags,
     this.stressLevel,
+    this.stressCaption,
   });
 
   final String moodLabel;
   final List<String> tags;
   final double? stressLevel;
+  final String? stressCaption;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +49,7 @@ class MoodCard extends StatelessWidget {
                   children: [
                     if (stressLevel != null)
                       Text(
-                        'Stress level · ${stressLevel!.round()}%',
+                        stressCaption ?? 'Stress level · ${stressLevel!.round()}%',
                         style: Theme.of(context).textTheme.labelMedium?.copyWith(
                               color: AppColors.forest,
                               letterSpacing: 0.4,

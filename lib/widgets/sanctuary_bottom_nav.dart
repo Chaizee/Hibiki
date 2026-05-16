@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import '../l10n/l10n_extensions.dart';
 
 class SanctuaryBottomNav extends StatelessWidget {
   const SanctuaryBottomNav({
@@ -12,15 +13,16 @@ class SanctuaryBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onSelect;
 
-  static const _items = [
-    _NavSpec('Listen', Icons.mic_none_rounded),
-    _NavSpec('History', Icons.calendar_month_outlined),
-    _NavSpec('Notes', Icons.description_outlined),
-    _NavSpec('Me', Icons.person_outline_rounded),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final items = [
+      (l10n.navListen, Icons.mic_none_rounded),
+      (l10n.navHistory, Icons.calendar_month_outlined),
+      (l10n.navNotes, Icons.description_outlined),
+      (l10n.navMe, Icons.person_outline_rounded),
+    ];
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -38,8 +40,8 @@ class SanctuaryBottomNav extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
-              final spec = _items[i];
+            children: List.generate(items.length, (i) {
+              final spec = items[i];
               final selected = i == currentIndex;
               return InkWell(
                 borderRadius: BorderRadius.circular(20),
@@ -59,7 +61,7 @@ class SanctuaryBottomNav extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          spec.icon,
+                          spec.$2,
                           size: 22,
                           color: selected
                               ? AppColors.forest
@@ -68,7 +70,7 @@ class SanctuaryBottomNav extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        spec.label,
+                        spec.$1,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               fontSize: 10,
                               color: selected
@@ -88,10 +90,4 @@ class SanctuaryBottomNav extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NavSpec {
-  const _NavSpec(this.label, this.icon);
-  final String label;
-  final IconData icon;
 }

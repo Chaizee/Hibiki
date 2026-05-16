@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/screen_layout.dart';
 import '../../data/models/mood_day_record.dart';
+import '../../l10n/l10n_extensions.dart';
+import '../../l10n/mood_result_l10n.dart';
 import '../../state/sanctuary_state.dart';
 import '../../widgets/resonance_score_card.dart';
 import '../../widgets/sanctuary_insight_card.dart';
@@ -47,6 +49,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final state = context.watch<SanctuaryState>();
     final insight = state.lastResult;
     final todayRecord = state.moodByDate.forDate(DateTime.now());
@@ -63,7 +66,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Ваше Эмоциональное Состояние',
+                  l10n.historyTitle,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
@@ -71,7 +74,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Reflecting on your journey through ${_historyMonthName(_displayedDate.month)}.',
+                  l10n.historyReflecting(l10n.monthName(_displayedDate.month)),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 20),
@@ -87,17 +90,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ResonanceScoreCard(
                   percent: resonance,
                   caption: todayRecord != null
-                      ? 'Сегодня: ${todayRecord.moodLabel}. Продолжайте ежедневные check-in.'
-                      : 'Запишите голос на вкладке Listen — день появится в календаре после анализа.',
+                      ? l10n.historyTodayCaption(
+                          l10n.moodLabelFor(todayRecord.emotion),
+                        )
+                      : l10n.historyEmptyCaption,
                 ),
                 const SizedBox(height: 20),
                 _MoodFrequencyCard(counts: state.emotionDayCounts),
                 const SizedBox(height: 20),
                 SanctuaryInsightCard(
-                  title: insight?.insightHeadline ??
-                      'Когда вы спокойны, ваш голос обретает глубину.',
-                  body: insight?.insightBody ??
-                      'Мы заметили связь между вечерними голосовыми заметками и вашим утренним настроением.',
+                  title: insight != null
+                      ? insight.localizedHeadline(l10n)
+                      : l10n.insightDefaultTitle,
+                  body: insight != null
+                      ? insight.localizedBody(l10n)
+                      : l10n.insightDefaultBody,
                 ),
                 const SizedBox(height: 20),
               ],
@@ -107,25 +114,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ],
     );
   }
-}
-
-String _historyMonthName(int month) {
-  const names = [
-    '',
-    'Январь',
-    'Февраль',
-    'Март',
-    'Апрель',
-    'Май',
-    'Июнь',
-    'Июль',
-    'Август',
-    'Сентябрь',
-    'Октябрь',
-    'Ноябрь',
-    'Декабрь',
-  ];
-  return names[month];
 }
 
 class _CalendarCard extends StatelessWidget {
@@ -147,6 +135,7 @@ class _CalendarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
@@ -165,7 +154,7 @@ class _CalendarCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                '${_monthName(displayedDate.month)} ${displayedDate.year}',
+                '${l10n.monthName(displayedDate.month)} ${displayedDate.year}',
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w700,
                   color: AppColors.forest,
@@ -198,24 +187,6 @@ class _CalendarCard extends StatelessWidget {
     );
   }
 
-  String _monthName(int m) {
-    const names = [
-      '',
-      'Январь',
-      'Февраль',
-      'Март',
-      'Апрель',
-      'Май',
-      'Июнь',
-      'Июль',
-      'Август',
-      'Сентябрь',
-      'Октябрь',
-      'Ноябрь',
-      'Декабрь',
-    ];
-    return names[m];
-  }
 }
 
 class _WeekdayRow extends StatelessWidget {
@@ -223,7 +194,8 @@ class _WeekdayRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+    final l10n = context.l10n;
+    final days = List.generate(7, (i) => l10n.weekdayLabel(i + 1));
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: days
@@ -464,6 +436,7 @@ class _DayCellState extends State<_DayCell> with SingleTickerProviderStateMixin 
   }
 
   Widget _dayCellLayout({required bool isToday, required Widget child}) {
+    final todayLabel = isToday ? context.l10n.todayLabel : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -477,9 +450,9 @@ class _DayCellState extends State<_DayCell> with SingleTickerProviderStateMixin 
           height: _kCalSubtitleExtent,
           child: Align(
             alignment: Alignment.topCenter,
-            child: isToday
+            child: todayLabel != null
                 ? Text(
-                    'Today',
+                    todayLabel,
                     maxLines: 1,
                     overflow: TextOverflow.clip,
                     style: GoogleFonts.inter(
@@ -504,6 +477,7 @@ class _MoodFrequencyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final total = counts.values.fold<int>(0, (a, b) => a + b);
     final calm = counts['calm'] ?? 0;
     final joyful = counts['joyful'] ?? 0;
@@ -513,24 +487,24 @@ class _MoodFrequencyCard extends StatelessWidget {
 
     final rows = [
       _FreqRow(
-        label: 'Спокойствие',
+        label: l10n.emotionCalm,
         emoji: '😌',
         value: ratio(calm),
-        days: total == 0 ? '—' : '$calm ${_daysLabel(calm)}',
+        days: total == 0 ? '—' : l10n.daysCount(calm),
         color: AppColors.forest,
       ),
       _FreqRow(
-        label: 'Радость',
+        label: l10n.emotionJoyful,
         emoji: '😊',
         value: ratio(joyful),
-        days: total == 0 ? '—' : '$joyful ${_daysLabel(joyful)}',
+        days: total == 0 ? '—' : l10n.daysCount(joyful),
         color: AppColors.sage,
       ),
       _FreqRow(
-        label: 'Напряжение',
+        label: l10n.emotionTense,
         emoji: '🤯',
         value: ratio(tense),
-        days: total == 0 ? '—' : '$tense ${_daysLabel(tense)}',
+        days: total == 0 ? '—' : l10n.daysCount(tense),
         color: AppColors.tenseBar,
       ),
     ];
@@ -552,7 +526,7 @@ class _MoodFrequencyCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'MOOD FREQUENCY',
+            l10n.moodFrequency,
             style: GoogleFonts.inter(
               fontSize: 11,
               letterSpacing: 1.2,
@@ -572,13 +546,6 @@ class _MoodFrequencyCard extends StatelessWidget {
     );
   }
 
-  String _daysLabel(int n) {
-    if (n % 10 == 1 && n % 100 != 11) return 'день';
-    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) {
-      return 'дня';
-    }
-    return 'дней';
-  }
 }
 
 class _FreqRow extends StatelessWidget {

@@ -1,43 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../l10n/app_locale.dart';
+import '../../l10n/l10n_extensions.dart';
+import '../../state/locale_controller.dart';
 
 class AccountSettingsScreen extends StatelessWidget {
   const AccountSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      (
-        Icons.person_outline,
-        'Personal Information',
-        'Update your details and avatar',
-        false,
-      ),
-      (
-        Icons.notifications_none_rounded,
-        'Mindfulness Reminders',
-        'Push notifications and schedule',
-        false,
-      ),
-      (
-        Icons.shield_outlined,
-        'Privacy & Security',
-        'Manage your data and encryption',
-        false,
-      ),
-      (
-        Icons.logout,
-        'Sign Out',
-        'Securely exit your account',
-        true,
-      ),
-    ];
+    final l10n = context.l10n;
+    final localeController = context.watch<LocaleController>();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Account Settings'),
+        title: Text(l10n.accountSettings),
         centerTitle: true,
       ),
       body: ListView(
@@ -59,28 +39,26 @@ class AccountSettingsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ...items.map(
-                  (e) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.white,
-                      foregroundColor:
-                          e.$4 ? const Color(0xFFB45353) : AppColors.forest,
-                      child: Icon(e.$1),
+                Text(
+                  l10n.language,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<AppLocale>(
+                  segments: [
+                    ButtonSegment(
+                      value: AppLocale.en,
+                      label: Text(l10n.languageEnglish),
                     ),
-                    title: Text(
-                      e.$2,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: e.$4
-                            ? const Color(0xFFB45353)
-                            : AppColors.textPrimary,
-                      ),
+                    ButtonSegment(
+                      value: AppLocale.ru,
+                      label: Text(l10n.languageRussian),
                     ),
-                    subtitle: Text(e.$3),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {},
-                  ),
+                  ],
+                  selected: {localeController.locale},
+                  onSelectionChanged: (set) {
+                    localeController.setLocale(set.first);
+                  },
                 ),
               ],
             ),

@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import '../core/config/app_config.dart';
 import '../data/api/sanctuary_api_client.dart';
 import '../data/models/journal_entry.dart';
+import '../data/models/me_profile_models.dart';
 import '../data/models/mood_day_record.dart';
 import '../data/models/mood_result.dart';
 import '../data/models/recommendation.dart';
 import '../data/models/streak_stats.dart';
+import '../data/repositories/journal_repository.dart';
 import '../data/repositories/mood_history_repository.dart';
-import '../data/models/me_profile_models.dart';
 import '../services/me_stats_service.dart';
 import '../services/streak_calculator.dart';
 import '../services/voice_analysis_service.dart';
@@ -22,11 +23,13 @@ class SanctuaryState extends ChangeNotifier {
     required VoiceRecordingService recording,
     required VoiceAnalysisService analysis,
     MoodHistoryRepository? moodHistoryRepository,
+    JournalRepository? journalRepository,
     StreakCalculator? streakCalculator,
   })  : _api = api,
         _recording = recording,
         _analysis = analysis,
         _moodHistoryRepo = moodHistoryRepository ?? MoodHistoryRepository(),
+        _journalRepo = journalRepository ?? JournalRepository(),
         _streakCalculator = streakCalculator ?? StreakCalculator(),
         _meStats = MeStatsService();
 
@@ -34,6 +37,7 @@ class SanctuaryState extends ChangeNotifier {
   final VoiceRecordingService _recording;
   final VoiceAnalysisService _analysis;
   final MoodHistoryRepository _moodHistoryRepo;
+  final JournalRepository _journalRepo;
   final StreakCalculator _streakCalculator;
   final MeStatsService _meStats;
 
@@ -46,17 +50,17 @@ class SanctuaryState extends ChangeNotifier {
   Map<String, MoodDayRecord> moodByDate = {};
   StreakStats streakStats = StreakStats.empty;
 
-  /// After voice analysis, History calendar animates this day (yyyy-MM-dd).
   String? calendarRevealDateKey;
 
   List<Recommendation> recommendations = _defaultRecommendations();
-  List<JournalEntry> journalEntries = _seedJournal();
+  List<JournalEntry> journalEntries = [];
 
-  String notesPulse = 'Steady';
+  String notesPulseKey = 'steady';
 
   Future<void> initialize() async {
     await _analysis.initialize();
     moodByDate = await _moodHistoryRepo.loadAll();
+    journalEntries = await _journalRepo.loadAll();
     _recomputeStreak();
     await refreshRecommendations();
     notifyListeners();
@@ -86,17 +90,14 @@ class SanctuaryState extends ChangeNotifier {
 
   WeeklyVibeSummary get weeklyVibe => _meStats.weeklyVibe(moodByDate);
 
-  String get explorerTitle => _meStats.explorerTitle(streakStats, moodByDate);
+  String get explorerTitleKey =>
+      _meStats.explorerTitleKey(streakStats, moodByDate);
 
   List<MilestoneItem> get milestones => _meStats.milestones(
         streak: streakStats,
         moodByDate: moodByDate,
-        journalCount: _userJournalSaveCount,
+        journalCount: journalEntries.length,
       );
-
-  /// Entries saved by the user (excludes short seeded demo ids like `1`, `2`).
-  int get _userJournalSaveCount =>
-      journalEntries.where((e) => e.id.length >= 12).length;
 
   Map<String, int> get emotionDayCounts {
     final counts = {'calm': 0, 'joyful': 0, 'tense': 0};
@@ -113,8 +114,8 @@ class SanctuaryState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setNotesPulse(String value) {
-    notesPulse = value;
+  void setNotesPulseKey(String key) {
+    notesPulseKey = key;
     notifyListeners();
   }
 
@@ -192,28 +193,37 @@ class SanctuaryState extends ChangeNotifier {
     return 'calm';
   }
 
-  Future<void> saveReflection({
+  Future<bool> saveReflection({
     required String title,
     required String body,
     List<String> tags = const [],
   }) async {
-    if (AppConfig.useMockApi) {
-      journalEntries = [
-        JournalEntry(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: title.isEmpty ? 'Untitled' : title,
-          timestamp: DateTime.now(),
-          snippet: body.length > 80 ? '${body.substring(0, 80)}…' : body,
-          iconKey: 'smile',
-        ),
-        ...journalEntries,
-      ];
-      notifyListeners();
-      return;
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return false;
+
+    final entry = JournalEntry.create(
+      title: title,
+      body: trimmed,
+      pulse: notesPulseKey,
+    );
+
+    if (!AppConfig.useMockApi) {
+      try {
+        await _api.postReflection(title: title, body: trimmed, tags: tags);
+      } catch (e, st) {
+        debugPrint('postReflection: $e\n$st');
+      }
     }
-    await _api.postReflection(title: title, body: body, tags: tags);
-    final remote = await _api.getJournalTimeline();
-    journalEntries = remote;
+
+    await _journalRepo.add(entry);
+    journalEntries = await _journalRepo.loadAll();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> deleteJournalEntry(String id) async {
+    await _journalRepo.delete(id);
+    journalEntries = await _journalRepo.loadAll();
     notifyListeners();
   }
 
@@ -246,33 +256,6 @@ class SanctuaryState extends ChangeNotifier {
         subtitle: 'Grounding',
         durationLabel: '3 min',
         icon: Icons.air,
-      ),
-    ];
-  }
-
-  static List<JournalEntry> _seedJournal() {
-    final now = DateTime.now();
-    return [
-      JournalEntry(
-        id: '1',
-        title: 'Morning Clarity',
-        timestamp: now.subtract(const Duration(hours: 3)),
-        snippet: 'Voice check-in felt light and steady…',
-        iconKey: 'smile',
-      ),
-      JournalEntry(
-        id: '2',
-        title: 'Evening Wind-down',
-        timestamp: now.subtract(const Duration(days: 1, hours: 2)),
-        snippet: 'Noticed deeper tone before sleep.',
-        iconKey: 'moon',
-      ),
-      JournalEntry(
-        id: '3',
-        title: 'Midday Spark',
-        timestamp: now.subtract(const Duration(days: 2)),
-        snippet: 'Higher energy — logged peak moment.',
-        iconKey: 'bolt',
       ),
     ];
   }

@@ -6,8 +6,6 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../data/models/mood_result.dart';
 import 'audio_feature_extractor.dart';
-import 'audio_mfcc_config.dart';
-
 /// On-device mood inference. Loads [voice_mood.tflite] from assets when present.
 class LocalMoodClassifier {
   LocalMoodClassifier({
@@ -40,7 +38,6 @@ class LocalMoodClassifier {
     _initialized = true;
   }
 
-  /// Below these levels (normalized waveform −1..1) ML output is unreliable → calm / low stress.
   static const double _silenceRmsMax = 0.026;
   static const double _silencePeakMax = 0.045;
 
@@ -58,6 +55,8 @@ class LocalMoodClassifier {
       prediction.emotion,
       vector,
       probabilities: prediction.probabilities,
+      rms: metrics.rms,
+      peak: metrics.peak,
     );
   }
 
@@ -66,15 +65,15 @@ class LocalMoodClassifier {
   }
 
   MoodResult _silenceResult(List<double> features, double rms, double peak) {
+    final stress = (12 + rms * 120 + peak * 40).clamp(10.0, 22.0);
     return MoodResult(
-      stressLevel: 14,
-      moodLabel: 'Quiet input',
-      tags: const ['Low signal', 'Try speaking closer'],
-      resonancePercent: 86,
+      stressLevel: stress,
+      moodLabel: 'quiet',
+      tags: const ['low_signal', 'speak_closer'],
+      resonancePercent: (100 - stress).round(),
       emotion: 'calm',
-      insightHeadline: 'Almost no voice detected.',
-      insightBody:
-          'Речь слишком тихая или далеко от микрофона — почти нет сигнала (RMS ${rms.toStringAsFixed(4)}, peak ${peak.toStringAsFixed(4)}).',
+      insightHeadline: 'quiet_headline',
+      insightBody: 'quiet_body',
       rawMlPayload: {
         'emotion': 'calm',
         'silence_override': true,
@@ -86,7 +85,6 @@ class LocalMoodClassifier {
     );
   }
 
-  /// Softmax output from TFLite (same order as [labels.txt]).
   ({String emotion, List<double>? probabilities}) _predictFromModel(
     List<double> features,
   ) {
@@ -96,7 +94,7 @@ class LocalMoodClassifier {
       final output = [List<double>.filled(_labels.length, 0)];
       interpreter.run(input, output);
       var probs = List<double>.from(output[0]);
-      var sum = probs.fold(0.0, (a, b) => a + b);
+      final sum = probs.fold(0.0, (a, b) => a + b);
       if (sum <= 1e-9) {
         return (emotion: _heuristicEmotion(features), probabilities: null);
       }
@@ -110,17 +108,14 @@ class LocalMoodClassifier {
           bestIdx = i;
         }
       }
-      final confidence = bestVal;
 
-      // Weak / flat softmax → heuristic label; stress still uses softened probs below when non-null.
-      if (confidence < 0.42) {
+      if (bestVal < 0.38) {
         return (emotion: _heuristicEmotion(features), probabilities: null);
       }
 
-      // Softer distribution so one hot argmax does not always map to fixed 72% stress.
-      probs = _temperProbs(probs, temperature: 1.35);
-      if (confidence < 0.55) {
-        probs = _mixUniform(probs, mix: 0.22);
+      probs = _temperProbs(probs, temperature: 1.4);
+      if (bestVal < 0.52) {
+        probs = _mixUniform(probs, mix: 0.18);
       }
 
       bestIdx = 0;
@@ -131,15 +126,17 @@ class LocalMoodClassifier {
           bestIdx = i;
         }
       }
-      final emotion = _labels[bestIdx.clamp(0, _labels.length - 1)];
-      return (emotion: emotion, probabilities: probs);
+      return (
+        emotion: _labels[bestIdx.clamp(0, _labels.length - 1)],
+        probabilities: probs,
+      );
     }
     return (emotion: _heuristicEmotion(features), probabilities: null);
   }
 
-  /// Raise probabilities to 1/T then renormalize (T>1 → smoother).
   List<double> _temperProbs(List<double> p, {required double temperature}) {
-    final powered = p.map((x) => math.pow(math.max(x, 1e-9), 1 / temperature)).toList();
+    final powered =
+        p.map((x) => math.pow(math.max(x, 1e-9), 1 / temperature).toDouble()).toList();
     final s = powered.fold(0.0, (a, b) => a + b);
     if (s <= 0) return p;
     return powered.map((x) => x / s).toList();
@@ -154,28 +151,106 @@ class LocalMoodClassifier {
 
   double _stressAnchor(String label) {
     return switch (label) {
-      'tense' => 58.0,
-      'joyful' => 30.0,
+      'tense' => 62.0,
+      'joyful' => 32.0,
       _ => 22.0,
     };
   }
 
   double _stressFromProbabilities(List<double> probs) {
-    var num = 0.0;
-    var den = 0.0;
+    var weighted = 0.0;
     for (var i = 0; i < probs.length && i < _labels.length; i++) {
-      num += probs[i] * _stressAnchor(_labels[i]);
-      den += probs[i];
+      weighted += probs[i] * _stressAnchor(_labels[i]);
     }
-    if (den <= 1e-9) return 28.0;
-    return (num / den).clamp(18.0, 76.0);
+    return weighted;
+  }
+
+  double _mfccBandEnergy(List<double> features, int start, int end) {
+    if (features.isEmpty) return 0;
+    final lo = start.clamp(0, features.length);
+    final hi = end.clamp(lo, features.length);
+    if (hi <= lo) return 0;
+    var sum = 0.0;
+    for (var i = lo; i < hi; i++) {
+      sum += features[i].abs();
+    }
+    return sum / (hi - lo);
+  }
+
+  double _acousticStress(
+    List<double> features,
+    double rms,
+    double peak,
+    String emotion,
+  ) {
+    if (features.isEmpty) {
+      return (18 + rms * 200 + peak * 90).clamp(12.0, 88.0);
+    }
+
+    final energy =
+        features.map((f) => f.abs()).reduce((a, b) => a + b) / features.length;
+    final variability = _std(features);
+    final lowBand = _mfccBandEnergy(features, 0, 6);
+    final midBand = _mfccBandEnergy(features, 6, 14);
+    final highBand = _mfccBandEnergy(features, 14, features.length);
+    final dynamicRange = peak - rms;
+
+    var stress = 12.0 +
+        rms * 240 +
+        peak * 95 +
+        dynamicRange * 55 +
+        variability * 3.4 +
+        energy * 2.4 +
+        midBand * 2.8 +
+        highBand * 3.2 -
+        lowBand * 0.9;
+
+    stress += switch (emotion) {
+      'tense' => 6.0,
+      'joyful' => -7.0,
+      _ => 0.0,
+    };
+
+    return stress.clamp(10.0, 90.0);
+  }
+
+  double _probabilityEntropy(List<double> probs) {
+    var h = 0.0;
+    for (final p in probs) {
+      if (p > 1e-9) {
+        h -= p * math.log(p);
+      }
+    }
+    return h;
+  }
+
+  double _computeStress({
+    required String emotion,
+    required List<double> features,
+    required double rms,
+    required double peak,
+    List<double>? probabilities,
+  }) {
+    final acoustic = _acousticStress(features, rms, peak, emotion);
+
+    if (probabilities != null && probabilities.length == _labels.length) {
+      final modelStress = _stressFromProbabilities(probabilities);
+      final entropy = _probabilityEntropy(probabilities);
+      final uncertainty = (entropy / math.log(probabilities.length)).clamp(0.0, 1.0);
+      final blended = acoustic * 0.62 +
+          modelStress * 0.28 +
+          uncertainty * 18;
+      return blended.clamp(8.0, 94.0);
+    }
+
+    return acoustic.clamp(8.0, 94.0);
   }
 
   String _heuristicEmotion(List<double> features) {
     if (features.isEmpty) return 'calm';
-    final energy = features.map((f) => f.abs()).reduce((a, b) => a + b) / features.length;
+    final energy =
+        features.map((f) => f.abs()).reduce((a, b) => a + b) / features.length;
     final variability = _std(features);
-    // Noise-like MFCCs without loud speech → calm.
     if (variability > 10 && energy < 4.5) return 'calm';
     if (variability > 8) return 'tense';
     if (energy > 5) return 'joyful';
@@ -185,8 +260,10 @@ class LocalMoodClassifier {
   double _std(List<double> values) {
     if (values.isEmpty) return 0;
     final mean = values.reduce((a, b) => a + b) / values.length;
-    final variance =
-        values.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) / values.length;
+    final variance = values
+            .map((v) => (v - mean) * (v - mean))
+            .reduce((a, b) => a + b) /
+        values.length;
     return math.sqrt(variance);
   }
 
@@ -194,47 +271,43 @@ class LocalMoodClassifier {
     String emotion,
     List<double> features, {
     List<double>? probabilities,
+    required double rms,
+    required double peak,
   }) {
-    final stress = probabilities != null && probabilities.length == _labels.length
-        ? _stressFromProbabilities(probabilities)
-        : switch (emotion) {
-            'tense' => 58.0,
-            'joyful' => 30.0,
-            _ => 22.0,
-          };
+    final stress = _computeStress(
+      emotion: emotion,
+      features: features,
+      rms: rms,
+      peak: peak,
+      probabilities: probabilities,
+    );
     final resonance = (100 - stress).round().clamp(0, 100);
-    final label = switch (emotion) {
-      'tense' => 'Tense & Heavy',
-      'joyful' => 'Joyful & Bright',
-      _ => 'Serene & Calm',
-    };
-    final tags = switch (emotion) {
-      'tense' => const ['Elevated Variability', 'Sharp Transients'],
-      'joyful' => const ['Bright Tone', 'Higher Energy'],
-      _ => const ['Consistent Frequency', 'Warm Tone'],
-    };
 
     return MoodResult(
       stressLevel: stress,
-      moodLabel: label,
-      tags: tags,
+      moodLabel: emotion,
+      tags: _tagsFor(emotion),
       resonancePercent: resonance,
       emotion: emotion,
-      insightHeadline: switch (emotion) {
-        'tense' => 'Your voice carries extra tension today.',
-        'joyful' => 'Your tone sounds open and energized.',
-        _ => 'Your voice tends to be deeper on calm days.',
-      },
-      insightBody:
-          'Analysis used ${AudioMfccConfig.nMfcc} MFCC coefficients at ${AudioMfccConfig.sampleRate} Hz.',
+      insightHeadline: '${emotion}_headline',
+      insightBody: 'analysis_body',
       rawMlPayload: <String, dynamic>{
         'emotion': emotion,
+        'stress': stress,
+        'rms': rms,
+        'peak': peak,
         'mfcc_mean': features,
         'on_device': true,
         if (probabilities != null) 'probs': probabilities,
       },
     );
   }
+
+  List<String> _tagsFor(String emotion) => switch (emotion) {
+        'tense' => const ['variability', 'transients'],
+        'joyful' => const ['bright', 'energy'],
+        _ => const ['consistent', 'warm'],
+      };
 
   void dispose() {
     _interpreter?.close();

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/screen_layout.dart';
+import '../../l10n/app_strings.dart';
+import '../../l10n/l10n_extensions.dart';
 import '../../state/sanctuary_state.dart';
 import '../../widgets/sanctuary_chip.dart';
 import '../../widgets/timeline_item.dart';
@@ -28,8 +30,10 @@ class _NotesScreenState extends State<NotesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final state = context.watch<SanctuaryState>();
     final now = DateFormat('MMM d, y · h:mm a').format(DateTime.now());
+    const pulseKeys = AppStrings.pulseKeys;
 
     return CustomScrollView(
       slivers: [
@@ -42,38 +46,63 @@ class _NotesScreenState extends State<NotesScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Timeline', style: Theme.of(context).textTheme.titleMedium),
-                    TextButton(onPressed: () {}, child: const Text('View All')),
+                    Text(
+                      l10n.notesTimeline,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                ...state.journalEntries.map((e) => TimelineItem(entry: e)),
+                if (state.journalEntries.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      l10n.notesEmptyList,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                else
+                  ...state.journalEntries.map(
+                    (e) => TimelineItem(
+                      entry: e,
+                      onDelete: () async {
+                        await state.deleteJournalEntry(e.id);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(l10n.notesDeleted)),
+                        );
+                      },
+                    ),
+                  ),
                 const SizedBox(height: 20),
                 Text(
-                  'Today\'s Pulse',
+                  l10n.notesPulse,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'How are your thoughts flowing right now?',
+                  l10n.notesPulseHint,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: ['Steady', 'Vibrant', 'Foggy', 'Gentle']
+                  children: pulseKeys
                       .map(
-                        (label) => SanctuaryChip(
-                          label: label,
-                          selected: state.notesPulse == label,
-                          onTap: () => state.setNotesPulse(label),
+                        (key) => SanctuaryChip(
+                          label: l10n.pulseLabel(key),
+                          selected: state.notesPulseKey == key,
+                          onTap: () => state.setNotesPulseKey(key),
                         ),
                       )
                       .toList(),
                 ),
                 const SizedBox(height: 24),
-                Text('Daily Entry', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  l10n.notesDailyEntry,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(18),
@@ -93,59 +122,19 @@ class _NotesScreenState extends State<NotesScreen> {
                     children: [
                       TextField(
                         controller: _title,
-                        decoration: const InputDecoration(
-                          hintText: 'Title your reflection…',
+                        decoration: InputDecoration(
+                          hintText: l10n.notesTitleHint,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(now, style: Theme.of(context).textTheme.bodySmall),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.format_bold),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.format_italic),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.format_list_bulleted),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.format_quote_rounded),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.image_outlined),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.mic_none_rounded),
-                          ),
-                        ],
-                      ),
                       TextField(
                         controller: _body,
                         maxLines: 6,
-                        decoration: const InputDecoration(
-                          hintText: 'Start writing from the heart…',
+                        decoration: InputDecoration(
+                          hintText: l10n.notesBodyHint,
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          const SanctuaryChip(label: 'Personal', filled: true),
-                          const SanctuaryChip(label: 'Gratitude', filled: true),
-                          ActionChip(
-                            label: const Text('+'),
-                            onPressed: () {},
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -155,7 +144,7 @@ class _NotesScreenState extends State<NotesScreen> {
                               _title.clear();
                               _body.clear();
                             },
-                            child: const Text('Discard'),
+                            child: Text(l10n.notesDiscard),
                           ),
                           const Spacer(),
                           DecoratedBox(
@@ -175,22 +164,26 @@ class _NotesScreenState extends State<NotesScreen> {
                                 ),
                               ),
                               onPressed: () async {
-                                await state.saveReflection(
+                                final saved = await state.saveReflection(
                                   title: _title.text,
                                   body: _body.text,
-                                  tags: const ['Personal', 'Gratitude'],
                                 );
-                                if (context.mounted) {
+                                if (!context.mounted) return;
+                                if (saved) {
                                   _title.clear();
                                   _body.clear();
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Reflection saved'),
+                                    SnackBar(content: Text(l10n.notesSaved)),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(l10n.notesEmptyBodyError),
                                     ),
                                   );
                                 }
                               },
-                              child: const Text('Save Reflection'),
+                              child: Text(l10n.notesSave),
                             ),
                           ),
                         ],
