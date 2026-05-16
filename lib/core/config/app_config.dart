@@ -13,6 +13,12 @@ class AppConfig {
   /// When true, [VoiceAnalysisService] skips HTTP and returns a deterministic sample.
   static const bool useMockApi = bool.fromEnvironment(
     'MOCK_API',
+    defaultValue: false,
+  );
+
+  /// When true (and mock is off), runs [LocalMoodClassifier] inside the app.
+  static const bool useOnDeviceModel = bool.fromEnvironment(
+    'ON_DEVICE_ML',
     defaultValue: true,
   );
 }
