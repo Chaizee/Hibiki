@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/screen_layout.dart';
+import '../../data/models/journal_entry.dart';
 import '../../l10n/app_strings.dart';
 import '../../l10n/l10n_extensions.dart';
 import '../../state/sanctuary_state.dart';
@@ -20,12 +21,68 @@ class NotesScreen extends StatefulWidget {
 class _NotesScreenState extends State<NotesScreen> {
   final _title = TextEditingController();
   final _body = TextEditingController();
+  final _formKey = GlobalKey();
+  String? _editingId;
 
   @override
   void dispose() {
     _title.dispose();
     _body.dispose();
     super.dispose();
+  }
+
+  bool get _isEditing => _editingId != null;
+
+  void _startEditing(JournalEntry entry) {
+    setState(() {
+      _editingId = entry.id;
+      _title.text = entry.title;
+      _body.text = entry.body;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _formKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _clearForm() {
+    setState(() {
+      _editingId = null;
+      _title.clear();
+      _body.clear();
+    });
+  }
+
+  void _submit(SanctuaryState state) {
+    final l10n = context.l10n;
+    final title = _title.text;
+    final body = _body.text;
+
+    final ok = _isEditing
+        ? state.updateJournalEntry(id: _editingId!, title: title, body: body)
+        : state.saveReflection(title: title, body: body);
+
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.notesEmptyBodyError)),
+      );
+      return;
+    }
+
+    final wasEditing = _isEditing;
+    _clearForm();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(wasEditing ? l10n.notesUpdated : l10n.notesSaved),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -65,9 +122,11 @@ class _NotesScreenState extends State<NotesScreen> {
                   ...state.journalEntries.map(
                     (e) => TimelineItem(
                       entry: e,
-                      onDelete: () async {
-                        await state.deleteJournalEntry(e.id);
-                        if (!context.mounted) return;
+                      selected: _editingId == e.id,
+                      onTap: () => _startEditing(e),
+                      onDelete: () {
+                        if (_editingId == e.id) _clearForm();
+                        state.deleteJournalEntry(e.id);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(l10n.notesDeleted)),
                         );
@@ -100,15 +159,22 @@ class _NotesScreenState extends State<NotesScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  l10n.notesDailyEntry,
+                  _isEditing ? l10n.notesEdit : l10n.notesDailyEntry,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
                 Container(
+                  key: _formKey,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: AppColors.white,
                     borderRadius: BorderRadius.circular(28),
+                    border: _isEditing
+                        ? Border.all(
+                            color: AppColors.sage.withValues(alpha: 0.7),
+                            width: 1.5,
+                          )
+                        : null,
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.forest.withValues(alpha: 0.06),
@@ -140,10 +206,7 @@ class _NotesScreenState extends State<NotesScreen> {
                       Row(
                         children: [
                           TextButton(
-                            onPressed: () {
-                              _title.clear();
-                              _body.clear();
-                            },
+                            onPressed: _clearForm,
                             child: Text(l10n.notesDiscard),
                           ),
                           const Spacer(),
@@ -163,27 +226,10 @@ class _NotesScreenState extends State<NotesScreen> {
                                   vertical: 14,
                                 ),
                               ),
-                              onPressed: () async {
-                                final saved = await state.saveReflection(
-                                  title: _title.text,
-                                  body: _body.text,
-                                );
-                                if (!context.mounted) return;
-                                if (saved) {
-                                  _title.clear();
-                                  _body.clear();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(l10n.notesSaved)),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(l10n.notesEmptyBodyError),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: Text(l10n.notesSave),
+                              onPressed: () => _submit(state),
+                              child: Text(
+                                _isEditing ? l10n.notesUpdate : l10n.notesSave,
+                              ),
                             ),
                           ),
                         ],

@@ -147,7 +147,10 @@ class AppStrings {
       _t('Start writing from the heart…', 'Начните писать от сердца…');
   String get notesDiscard => _t('Discard', 'Отменить');
   String get notesSave => _t('Save Reflection', 'Сохранить');
+  String get notesUpdate => _t('Update', 'Обновить');
   String get notesSaved => _t('Reflection saved', 'Заметка сохранена');
+  String get notesUpdated => _t('Note updated', 'Заметка обновлена');
+  String get notesEdit => _t('Edit note', 'Редактировать');
   String get notesEmptyTitle => _t('Untitled', 'Без названия');
   String get notesEmptyBodyError =>
       _t('Write something before saving.', 'Напишите текст перед сохранением.');
@@ -217,6 +220,29 @@ class AppStrings {
   String get language => _t('Language', 'Язык');
   String get languageEnglish => _t('English', 'English');
   String get languageRussian => _t('Russian', 'Русский');
+  String get settingsPersonalTitle =>
+      _t('Personal Information', 'Личные данные');
+  String get settingsPersonalSubtitle => _t(
+        'Update your details and avatar',
+        'Имя, аватар и профиль',
+      );
+  String get settingsRemindersTitle =>
+      _t('Mindfulness Reminders', 'Напоминания');
+  String get settingsRemindersSubtitle => _t(
+        'Push notifications and schedule',
+        'Уведомления и расписание',
+      );
+  String get settingsPrivacyTitle =>
+      _t('Privacy & Security', 'Конфиденциальность');
+  String get settingsPrivacySubtitle => _t(
+        'Manage your data and encryption',
+        'Данные и защита',
+      );
+  String get settingsSignOutTitle => _t('Sign Out', 'Выйти');
+  String get settingsSignOutSubtitle => _t(
+        'Securely exit your account',
+        'Безопасный выход из аккаунта',
+      );
 
   String explorerTitle(String key) => switch (key) {
         'master' => _t('Resonance Master', 'Мастер резонанса'),

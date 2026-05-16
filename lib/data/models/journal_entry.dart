@@ -17,6 +17,28 @@ class JournalEntry {
   final String iconKey;
   final String? pulse;
 
+  static String makeSnippet(String body) {
+    final trimmed = body.trim();
+    return trimmed.length > 120 ? '${trimmed.substring(0, 120)}…' : trimmed;
+  }
+
+  JournalEntry copyWith({
+    String? title,
+    String? body,
+    String? pulse,
+  }) {
+    final nextBody = body ?? this.body;
+    return JournalEntry(
+      id: id,
+      title: title ?? this.title,
+      body: nextBody,
+      timestamp: timestamp,
+      snippet: makeSnippet(nextBody),
+      iconKey: iconKey,
+      pulse: pulse ?? this.pulse,
+    );
+  }
+
   factory JournalEntry.create({
     required String title,
     required String body,
@@ -30,7 +52,7 @@ class JournalEntry {
       title: title.trim().isEmpty ? '' : title.trim(),
       body: trimmed,
       timestamp: timestamp ?? DateTime.now(),
-      snippet: trimmed.length > 120 ? '${trimmed.substring(0, 120)}…' : trimmed,
+      snippet: makeSnippet(trimmed),
       iconKey: iconKey,
       pulse: pulse,
     );

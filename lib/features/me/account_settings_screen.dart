@@ -14,6 +14,33 @@ class AccountSettingsScreen extends StatelessWidget {
     final l10n = context.l10n;
     final localeController = context.watch<LocaleController>();
 
+    final items = [
+      (
+        Icons.person_outline,
+        l10n.settingsPersonalTitle,
+        l10n.settingsPersonalSubtitle,
+        false,
+      ),
+      (
+        Icons.notifications_none_rounded,
+        l10n.settingsRemindersTitle,
+        l10n.settingsRemindersSubtitle,
+        false,
+      ),
+      (
+        Icons.shield_outlined,
+        l10n.settingsPrivacyTitle,
+        l10n.settingsPrivacySubtitle,
+        false,
+      ),
+      (
+        Icons.logout,
+        l10n.settingsSignOutTitle,
+        l10n.settingsSignOutSubtitle,
+        true,
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -59,6 +86,48 @@ class AccountSettingsScreen extends StatelessWidget {
                   onSelectionChanged: (set) {
                     localeController.setLocale(set.first);
                   },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.forest.withValues(alpha: 0.05),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                ...items.map(
+                  (e) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: AppColors.white,
+                      foregroundColor:
+                          e.$4 ? const Color(0xFFB45353) : AppColors.forest,
+                      child: Icon(e.$1),
+                    ),
+                    title: Text(
+                      e.$2,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: e.$4
+                            ? const Color(0xFFB45353)
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(e.$3),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {},
+                  ),
                 ),
               ],
             ),
