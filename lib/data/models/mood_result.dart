@@ -63,13 +63,12 @@ class MoodResult {
   static MoodResult mockSample() {
     return const MoodResult(
       stressLevel: 22,
-      moodLabel: 'Serene & Calm',
-      tags: ['Consistent Frequency', 'Warm Tone'],
+      moodLabel: 'calm',
+      tags: ['consistent', 'warm'],
       emotion: 'calm',
       resonancePercent: 84,
-      insightHeadline: 'Your voice tends to be deeper on calm days.',
-      insightBody:
-          'We noticed a correlation between evening voice notes and morning entries.',
+      insightHeadline: 'calm_headline',
+      insightBody: 'analysis_body',
     );
   }
 }

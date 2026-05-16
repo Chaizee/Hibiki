@@ -3,11 +3,17 @@ import 'package:intl/intl.dart';
 
 import '../core/theme/app_colors.dart';
 import '../data/models/journal_entry.dart';
+import '../l10n/l10n_extensions.dart';
 
 class TimelineItem extends StatelessWidget {
-  const TimelineItem({super.key, required this.entry});
+  const TimelineItem({
+    super.key,
+    required this.entry,
+    this.onDelete,
+  });
 
   final JournalEntry entry;
+  final VoidCallback? onDelete;
 
   IconData _icon() {
     switch (entry.iconKey) {
@@ -22,8 +28,12 @@ class TimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final time = DateFormat('MMM d · h:mm a').format(entry.timestamp);
-    return Container(
+    final title =
+        entry.title.isEmpty ? l10n.notesEmptyTitle : entry.title;
+
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -50,7 +60,7 @@ class TimelineItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  entry.title,
+                  title,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
@@ -66,8 +76,34 @@ class TimelineItem extends StatelessWidget {
               ],
             ),
           ),
+          if (onDelete != null)
+            IconButton(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline),
+              color: AppColors.textSecondary,
+              tooltip: l10n.notesDelete,
+            ),
         ],
       ),
+    );
+
+    if (onDelete == null) return card;
+
+    return Dismissible(
+      key: ValueKey(entry.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete!(),
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.red.shade400,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Icon(Icons.delete_outline, color: Colors.red.shade50),
+      ),
+      child: card,
     );
   }
 }

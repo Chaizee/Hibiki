@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// One bar in the Emotional Balance chart (last 7 days).
 class DayBalancePoint {
   const DayBalancePoint({
     required this.date,
-    required this.weekdayLabel,
+    required this.weekdayIndex,
     required this.barHeight,
     required this.hasData,
     required this.isToday,
@@ -12,7 +11,7 @@ class DayBalancePoint {
   });
 
   final DateTime date;
-  final String weekdayLabel;
+  final int weekdayIndex;
   final double barHeight;
   final bool hasData;
   final bool isToday;
@@ -21,21 +20,21 @@ class DayBalancePoint {
 
 class WeeklyVibeSummary {
   const WeeklyVibeSummary({
-    required this.label,
+    required this.labelKey,
     required this.positivePercent,
     required this.icon,
     required this.daysWithData,
     required this.dominantEmotion,
   });
 
-  final String label;
+  final String labelKey;
   final int positivePercent;
   final IconData icon;
   final int daysWithData;
   final String? dominantEmotion;
 
   static const empty = WeeklyVibeSummary(
-    label: 'Начните путь',
+    labelKey: 'start',
     positivePercent: 0,
     icon: Icons.mic_none_rounded,
     daysWithData: 0,
@@ -46,17 +45,21 @@ class WeeklyVibeSummary {
 class MilestoneItem {
   const MilestoneItem({
     required this.id,
-    required this.title,
-    required this.subtitle,
     required this.icon,
     required this.unlocked,
     this.iconBg = const Color(0xFFD9F2B1),
+    this.calmDays = 0,
+    this.joyfulDays = 0,
+    this.totalDays = 0,
+    this.journalCount = 0,
   });
 
   final String id;
-  final String title;
-  final String subtitle;
   final IconData icon;
   final bool unlocked;
   final Color iconBg;
+  final int calmDays;
+  final int joyfulDays;
+  final int totalDays;
+  final int journalCount;
 }
