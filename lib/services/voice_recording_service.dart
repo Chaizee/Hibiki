@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+
+import 'audio_mfcc_config.dart';
 
 /// Wraps `record` so you can swap implementations (e.g. Web) later.
 class VoiceRecordingService {
@@ -17,24 +18,17 @@ class VoiceRecordingService {
       throw StateError('Microphone permission not granted');
     }
     final dir = await getTemporaryDirectory();
-    final ext = _encoder == AudioEncoder.wav ? 'wav' : 'm4a';
     _activePath =
-        '${dir.path}/sanctuary_${DateTime.now().millisecondsSinceEpoch}.$ext';
+        '${dir.path}/sanctuary_${DateTime.now().millisecondsSinceEpoch}.wav';
     await _recorder.start(
-      RecordConfig(encoder: _encoder, bitRate: 128000, sampleRate: 44100),
+      RecordConfig(
+        encoder: AudioEncoder.wav,
+        sampleRate: AudioMfccConfig.sampleRate,
+        numChannels: 1,
+        bitRate: 128000,
+      ),
       path: _activePath!,
     );
-  }
-
-  AudioEncoder get _encoder {
-    if (kIsWeb) return AudioEncoder.wav;
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return AudioEncoder.wav;
-      default:
-        return AudioEncoder.aacLc;
-    }
   }
 
   Future<String?> stop() async {
