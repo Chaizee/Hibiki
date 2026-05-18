@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
@@ -193,11 +195,34 @@ class SanctuaryState extends ChangeNotifier {
     return 'calm';
   }
 
-  Future<bool> saveReflection({
+  void _persistJournalEntries() {
+    unawaited(
+      _journalRepo.replaceAll(journalEntries).catchError((Object e, StackTrace st) {
+        debugPrint('journal persist: $e\n$st');
+      }),
+    );
+  }
+
+  void _syncReflectionToApi({
     required String title,
     required String body,
     List<String> tags = const [],
-  }) async {
+  }) {
+    if (AppConfig.useMockApi) return;
+    unawaited(
+      _api.postReflection(title: title, body: body, tags: tags).catchError(
+        (Object e, StackTrace st) {
+          debugPrint('postReflection: $e\n$st');
+        },
+      ),
+    );
+  }
+
+  bool saveReflection({
+    required String title,
+    required String body,
+    List<String> tags = const [],
+  }) {
     final trimmed = body.trim();
     if (trimmed.isEmpty) return false;
 
@@ -207,24 +232,43 @@ class SanctuaryState extends ChangeNotifier {
       pulse: notesPulseKey,
     );
 
-    if (!AppConfig.useMockApi) {
-      try {
-        await _api.postReflection(title: title, body: trimmed, tags: tags);
-      } catch (e, st) {
-        debugPrint('postReflection: $e\n$st');
-      }
-    }
-
-    await _journalRepo.add(entry);
-    journalEntries = await _journalRepo.loadAll();
+    journalEntries = [entry, ...journalEntries];
     notifyListeners();
+    _persistJournalEntries();
+    _syncReflectionToApi(title: title, body: trimmed, tags: tags);
     return true;
   }
 
-  Future<void> deleteJournalEntry(String id) async {
-    await _journalRepo.delete(id);
-    journalEntries = await _journalRepo.loadAll();
+  bool updateJournalEntry({
+    required String id,
+    required String title,
+    required String body,
+  }) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return false;
+
+    final index = journalEntries.indexWhere((e) => e.id == id);
+    if (index < 0) return false;
+
+    final updated = journalEntries[index].copyWith(
+      title: title.trim().isEmpty ? '' : title.trim(),
+      body: trimmed,
+      pulse: notesPulseKey,
+    );
+
+    final next = [...journalEntries];
+    next[index] = updated;
+    journalEntries = next;
     notifyListeners();
+    _persistJournalEntries();
+    _syncReflectionToApi(title: updated.title, body: trimmed);
+    return true;
+  }
+
+  void deleteJournalEntry(String id) {
+    journalEntries = journalEntries.where((e) => e.id != id).toList();
+    notifyListeners();
+    _persistJournalEntries();
   }
 
   @override
