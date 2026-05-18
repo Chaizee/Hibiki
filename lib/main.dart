@@ -1,30 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'app/sanctuary_app.dart';
+import 'core/config/app_config.dart';
+import 'data/api/sanctuary_api_client.dart';
+import 'services/voice_analysis_service.dart';
+import 'services/voice_recording_service.dart';
+import 'state/sanctuary_state.dart';
 
 void main() {
-  runApp(const HibikiApp());
-}
+  WidgetsFlutterBinding.ensureInitialized();
 
-/// Minimal Flutter shell — feature branches add the Sanctuary app on top.
-class HibikiApp extends StatelessWidget {
-  const HibikiApp({super.key});
+  final api = SanctuaryApiClient(baseUrl: AppConfig.apiBaseUrl);
+  final recording = VoiceRecordingService();
+  final analysis = VoiceAnalysisService(api: api);
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Hibiki',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4B6332)),
-        useMaterial3: true,
-      ),
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'Hibiki',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ),
-    );
-  }
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => SanctuaryState(
+        api: api,
+        recording: recording,
+        analysis: analysis,
+      )..initialize(),
+      child: const SanctuaryApp(),
+    ),
+  );
 }
